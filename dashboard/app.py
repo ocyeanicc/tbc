@@ -2,17 +2,14 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.impute import KNNImputer
+import io
 
 # Konfigurasi halaman Streamlit
 st.set_page_config(page_title="Dashboard Analisis TBC", layout="wide")
 
 # Judul Aplikasi
 st.title("📊 Dashboard Analisis TBC")
-st.write(
-    "Aplikasi ini membantu dalam menganalisis hubungan antara sanitasi, perilaku, rumah, "
-    "dan penyakit TBC berdasarkan dataset yang diunggah."
-)
+st.write("Aplikasi ini membantu dalam menganalisis hubungan antara sanitasi, perilaku, rumah, dan penyakit TBC berdasarkan dataset yang diunggah.")
 
 # **Fitur Upload File**
 st.sidebar.header("📂 Upload Dataset")
@@ -27,38 +24,17 @@ if uploaded_file is not None:
         st.write("### 🔍 Data yang Diunggah")
         st.dataframe(df.head(10))
 
-        # **Menampilkan Informasi Dataset**
-        buffer = []
-        df.info(buf=buffer.append)
-        info_str = "\n".join(buffer)
+        # **Menampilkan Info Dataset (Diperbaiki)**
+        buffer = io.StringIO()
+        df.info(buf=buffer)  # ✅ Simpan output info dataset ke buffer
+        info_str = buffer.getvalue()  # ✅ Ambil isi buffer sebagai string
         st.text_area("ℹ️ Info Dataset", info_str, height=200)
 
-        # **Menampilkan Missing Values**
-        missing_values = df.isnull().sum()
-        missing_percentage = (missing_values / len(df)) * 100
-        missing_data = pd.DataFrame({"Missing Values": missing_values, "Percentage": missing_percentage})
-        missing_data = missing_data[missing_data["Missing Values"] > 0]
-        
-        st.write("### ❗ Missing Values")
-        if not missing_data.empty:
-            st.dataframe(missing_data.sort_values(by="Percentage", ascending=False))
-        else:
-            st.success("Tidak ada missing values dalam dataset.")
+        # **Menampilkan Statistik Dasar**
+        st.write("### 📊 Statistik Dasar")
+        st.write(df.describe())
 
-        # **Mengisi Missing Values**
-        kolom_numerik = df.select_dtypes(include=['number']).columns
-        kolom_kategori = df.select_dtypes(include=['object']).columns
-        
-        # Imputasi untuk kolom numerik
-        imputer = KNNImputer(n_neighbors=5)
-        df[kolom_numerik] = imputer.fit_transform(df[kolom_numerik])
-        
-        # Imputasi untuk kolom kategori
-        df[kolom_kategori] = df[kolom_kategori].apply(lambda x: x.fillna(x.mode()[0]))
-        
-        st.success("Missing values telah diisi menggunakan KNN Imputer untuk numerik dan modus untuk kategori.")
-
-        # **Visualisasi: Histogram**
+        # **Visualisasi: Histogram dari Kolom Numerik**
         st.write("### 📈 Distribusi Data")
         numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
 
