@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import io  # Import io untuk menangani teks output
 
 # Konfigurasi halaman Streamlit
 st.set_page_config(page_title="Dashboard Analisis TBC", layout="wide")
@@ -27,9 +28,9 @@ if uploaded_file is not None:
         st.dataframe(df.head(10))
 
         # **Menampilkan Info Dataset**
-        buffer = []
-        df.info(buf=buffer.append)
-        info_str = "\n".join(buffer)
+        buffer = io.StringIO()
+        df.info(buf=buffer)
+        info_str = buffer.getvalue()
         st.text_area("ℹ️ Info Dataset", info_str, height=200)
 
         # **Menampilkan Statistik Dasar**
