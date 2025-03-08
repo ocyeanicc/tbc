@@ -18,39 +18,43 @@ st.sidebar.header("📂 Upload Dataset")
 uploaded_file = st.sidebar.file_uploader("Pilih file CSV", type=["csv"])
 
 if uploaded_file is not None:
-    # Membaca dataset
-    df = pd.read_csv(uploaded_file)
+    try:
+        # **Membaca dataset dengan auto-detect delimiter**
+        df = pd.read_csv(uploaded_file, encoding="utf-8", sep=None, engine="python")
 
-    # **Menampilkan Data yang Diunggah**
-    st.write("### 🔍 Data yang Diunggah")
-    st.dataframe(df.head())
+        # **Menampilkan Data yang Diunggah**
+        st.write("### 🔍 Data yang Diunggah")
+        st.dataframe(df.head())
 
-    # **Menampilkan Statistik Dasar**
-    st.write("### 📊 Statistik Dasar")
-    st.write(df.describe())
+        # **Menampilkan Statistik Dasar**
+        st.write("### 📊 Statistik Dasar")
+        st.write(df.describe())
 
-    # **Visualisasi: Histogram dari Kolom Numerik**
-    st.write("### 📈 Distribusi Data")
-    numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
+        # **Visualisasi: Histogram dari Kolom Numerik**
+        st.write("### 📈 Distribusi Data")
+        numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
 
-    if len(numeric_columns) > 0:
-        selected_column = st.selectbox("Pilih kolom untuk histogram:", numeric_columns)
-        
-        fig, ax = plt.subplots(figsize=(8, 4))
-        sns.histplot(df[selected_column], bins=30, kde=True, ax=ax)
-        ax.set_title(f'Distribusi {selected_column}')
-        st.pyplot(fig)
-    else:
-        st.warning("Dataset tidak memiliki kolom numerik untuk divisualisasikan.")
+        if len(numeric_columns) > 0:
+            selected_column = st.selectbox("Pilih kolom untuk histogram:", numeric_columns)
 
-    # **Visualisasi: Korelasi Antar Variabel**
-    st.write("### 🔗 Korelasi Antar Variabel")
-    if len(numeric_columns) > 1:
-        fig, ax = plt.subplots(figsize=(10, 6))
-        sns.heatmap(df[numeric_columns].corr(), annot=True, cmap="coolwarm", fmt=".2f", ax=ax)
-        st.pyplot(fig)
-    else:
-        st.warning("Dataset memiliki kurang dari dua kolom numerik, tidak dapat menampilkan heatmap korelasi.")
+            fig, ax = plt.subplots(figsize=(8, 4))
+            sns.histplot(df[selected_column], bins=30, kde=True, ax=ax)
+            ax.set_title(f'Distribusi {selected_column}')
+            st.pyplot(fig)
+        else:
+            st.warning("Dataset tidak memiliki kolom numerik untuk divisualisasikan.")
+
+        # **Visualisasi: Korelasi Antar Variabel**
+        st.write("### 🔗 Korelasi Antar Variabel")
+        if len(numeric_columns) > 1:
+            fig, ax = plt.subplots(figsize=(10, 6))
+            sns.heatmap(df[numeric_columns].corr(), annot=True, cmap="coolwarm", fmt=".2f", ax=ax)
+            st.pyplot(fig)
+        else:
+            st.warning("Dataset memiliki kurang dari dua kolom numerik, tidak dapat menampilkan heatmap korelasi.")
+
+    except Exception as e:
+        st.error(f"Terjadi kesalahan saat membaca file: {e}")
 
 else:
     st.info("Silakan upload file CSV untuk memulai analisis.")
