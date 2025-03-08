@@ -19,12 +19,18 @@ uploaded_file = st.sidebar.file_uploader("Pilih file CSV", type=["csv"])
 
 if uploaded_file is not None:
     try:
-        # **Membaca dataset dengan auto-detect delimiter**
-        df = pd.read_csv(uploaded_file, encoding="utf-8", sep=None, engine="python")
-
+        # Membaca dataset dengan pemisah ; dan encoding UTF-8
+        df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8')
+        
         # **Menampilkan Data yang Diunggah**
         st.write("### 🔍 Data yang Diunggah")
-        st.dataframe(df.head())
+        st.dataframe(df.head(10))
+
+        # **Menampilkan Info Dataset**
+        buffer = []
+        df.info(buf=buffer.append)
+        info_str = "\n".join(buffer)
+        st.text_area("ℹ️ Info Dataset", info_str, height=200)
 
         # **Menampilkan Statistik Dasar**
         st.write("### 📊 Statistik Dasar")
@@ -36,7 +42,6 @@ if uploaded_file is not None:
 
         if len(numeric_columns) > 0:
             selected_column = st.selectbox("Pilih kolom untuk histogram:", numeric_columns)
-
             fig, ax = plt.subplots(figsize=(8, 4))
             sns.histplot(df[selected_column], bins=30, kde=True, ax=ax)
             ax.set_title(f'Distribusi {selected_column}')
@@ -52,7 +57,7 @@ if uploaded_file is not None:
             st.pyplot(fig)
         else:
             st.warning("Dataset memiliki kurang dari dua kolom numerik, tidak dapat menampilkan heatmap korelasi.")
-
+    
     except Exception as e:
         st.error(f"Terjadi kesalahan saat membaca file: {e}")
 
