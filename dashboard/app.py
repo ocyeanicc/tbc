@@ -23,22 +23,30 @@ if uploaded_file is not None:
         if required_columns.issubset(df.columns):
             # Fungsi untuk menghitung jumlah dan persentase "Tidak Layak"
             def calculate_percentage(column, condition):
-                total = df.shape[0]
-                tidak_layak = df[df[column].str.lower().str.strip() == condition.lower()].shape[0]
+                total = len(df)
+                tidak_layak = df[df[column].str.strip().str.lower() == condition.lower()].shape[0]
                 persentase = (tidak_layak / total * 100) if total > 0 else 0
                 return tidak_layak, persentase
             
-            persentase_tidak_layak_rumah = calculate_percentage("status_rumah", "Tidak Layak")[1]
-            persentase_tidak_layak_sanitasi = (calculate_percentage("sarana_air_bersih", "Tidak Layak")[1] + calculate_percentage("jamban", "Tidak Layak")[1]) / 2
-            persentase_tidak_baik_perilaku = (calculate_percentage("perilaku_merokok", "Ya")[1] + calculate_percentage("membersihkan_rumah", "Jarang")[1]) / 2
+            # Perhitungan jumlah dan persentase berdasarkan dataset
+            jumlah_rumah_tidak_layak, persentase_tidak_layak_rumah = calculate_percentage("status_rumah", "Tidak Layak")
+            jumlah_sanitasi_tidak_layak = df[(df["sarana_air_bersih"].str.strip().str.lower() == "tidak layak") | 
+                                              (df["jamban"].str.strip().str.lower() == "tidak layak")].shape[0]
+            persentase_tidak_layak_sanitasi = (jumlah_sanitasi_tidak_layak / len(df) * 100) if len(df) > 0 else 0
+            
+            jumlah_perilaku_tidak_baik = df[(df["perilaku_merokok"].str.strip().str.lower() == "ya") | 
+                                             (df["membersihkan_rumah"].str.strip().str.lower() == "jarang")].shape[0]
+            persentase_tidak_baik_perilaku = (jumlah_perilaku_tidak_baik / len(df) * 100) if len(df) > 0 else 0
             
             kategori = ["Rumah Tidak Layak", "Sanitasi Tidak Layak", "Perilaku Tidak Baik"]
             persentase = [persentase_tidak_layak_rumah, persentase_tidak_layak_sanitasi, persentase_tidak_baik_perilaku]
+            jumlah = [jumlah_rumah_tidak_layak, jumlah_sanitasi_tidak_layak, jumlah_perilaku_tidak_baik]
             
             # Mengurutkan data dari terbesar ke terkecil
             sorted_indices = sorted(range(len(persentase)), key=lambda i: persentase[i], reverse=True)
             kategori = [kategori[i] for i in sorted_indices]
             persentase = [persentase[i] for i in sorted_indices]
+            jumlah = [jumlah[i] for i in sorted_indices]
             
             # Menampilkan Bar Chart
             st.write("### 📊 Persentase Tidak Layak")
@@ -61,8 +69,8 @@ if uploaded_file is not None:
             st.pyplot(fig_pie)
             
             # Menampilkan Tabel Hasil
-            st.write("### 📋 Tabel Persentase Tidak Layak")
-            hasil_df = pd.DataFrame({"Kategori": kategori, "Persentase (%)": persentase})
+            st.write("### 📋 Tabel Persentase dan Jumlah Tidak Layak")
+            hasil_df = pd.DataFrame({"Kategori": kategori, "Jumlah": jumlah, "Persentase (%)": persentase})
             st.dataframe(hasil_df)
         else:
             st.error("Kolom yang diperlukan tidak ditemukan dalam dataset. Pastikan dataset memiliki format yang benar.")
