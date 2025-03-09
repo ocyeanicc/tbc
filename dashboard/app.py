@@ -1,88 +1,67 @@
 import streamlit as st
+import nbformat
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 
-# Konfigurasi halaman Streamlit
-st.set_page_config(page_title="Dashboard Analisis TBC", layout="wide")
+# Load Jupyter Notebook file
+NOTEBOOK_FILE = "/mnt/data/analisis tbc.ipynb"
 
-# Judul Aplikasi
-st.title("📊 Dashboard Analisis TBC")
-st.write("Aplikasi ini menganalisis hubungan antara sanitasi, perilaku, rumah, dan penyakit TBC berdasarkan dataset yang diunggah.")
+def load_notebook(filename):
+    with open(filename, "r", encoding="utf-8") as f:
+        return nbformat.read(f, as_version=4)
 
-# **Fitur Upload File**
-st.sidebar.header("📂 Upload Dataset")
-uploaded_file = st.sidebar.file_uploader("Pilih file CSV", type=["csv"])
+def extract_code_cells(nb):
+    """Extracts code cells from a Jupyter Notebook"""
+    return [cell['source'] for cell in nb.cells if cell.cell_type == 'code']
 
-if uploaded_file is not None:
-    try:
-        # Membaca dataset dengan pemisah otomatis
-        df = pd.read_csv(uploaded_file, sep=None, engine='python')
-        
-        # Menampilkan data awal
-        st.write("### 🔍 Data Awal")
-        st.dataframe(df.head())
+def extract_markdown_cells(nb):
+    """Extracts markdown cells from a Jupyter Notebook"""
+    return [cell['source'] for cell in nb.cells if cell.cell_type == 'markdown']
 
-        # Pastikan kolom yang diperlukan ada dalam dataset
-        required_columns = {"status_rumah", "sarana_air_bersih", "jamban", "perilaku_merokok", "membersihkan_rumah"}
-        if required_columns.issubset(df.columns):
-            
-            # Mengisi nilai kosong jika ada
-            df.fillna("Tidak Diketahui", inplace=True)
+# Streamlit UI
+st.title("Dashboard Analisis TBC")
+st.write("Berikut adalah tampilan dari file notebook yang telah diunggah.")
 
-            # Fungsi untuk menghitung jumlah dan persentase "Tidak Layak"
-            def calculate_percentage(column, condition):
-                total = len(df)
-                tidak_layak = df[df[column].str.strip().str.lower() == condition.lower()].shape[0]
-                persentase = (tidak_layak / total * 100) if total > 0 else 0
-                return tidak_layak, persentase
-            
-            # Perhitungan jumlah dan persentase berdasarkan dataset
-            jumlah_rumah_tidak_layak, persentase_tidak_layak_rumah = calculate_percentage("status_rumah", "Tidak Layak")
-            jumlah_sanitasi_tidak_layak = df[(df["sarana_air_bersih"].str.strip().str.lower() == "tidak layak") | 
-                                              (df["jamban"].str.strip().str.lower() == "tidak layak")].shape[0]
-            persentase_tidak_layak_sanitasi = (jumlah_sanitasi_tidak_layak / len(df) * 100) if len(df) > 0 else 0
-            
-            jumlah_perilaku_tidak_baik = df[(df["perilaku_merokok"].str.strip().str.lower() == "ya") | 
-                                             (df["membersihkan_rumah"].str.strip().str.lower() == "jarang")].shape[0]
-            persentase_tidak_baik_perilaku = (jumlah_perilaku_tidak_baik / len(df) * 100) if len(df) > 0 else 0
-            
-            kategori = ["Rumah Tidak Layak", "Sanitasi Tidak Layak", "Perilaku Tidak Baik"]
-            persentase = [persentase_tidak_layak_rumah, persentase_tidak_layak_sanitasi, persentase_tidak_baik_perilaku]
-            jumlah = [jumlah_rumah_tidak_layak, jumlah_sanitasi_tidak_layak, jumlah_perilaku_tidak_baik]
-            
-            # Mengurutkan data dari terbesar ke terkecil
-            sorted_indices = sorted(range(len(persentase)), key=lambda i: persentase[i], reverse=True)
-            kategori = [kategori[i] for i in sorted_indices]
-            persentase = [persentase[i] for i in sorted_indices]
-            jumlah = [jumlah[i] for i in sorted_indices]
-            
-            # **Menampilkan Bar Chart**
-            st.write("### 📊 Persentase Tidak Layak")
-            fig, ax = plt.subplots(figsize=(8, 5))
-            sns.barplot(x=kategori, y=persentase, palette=['red', 'orange', 'blue'])
-            ax.set_xlabel("Kategori")
-            ax.set_ylabel("Persentase (%)")
-            ax.set_title("Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak")
-            ax.set_ylim(0, 100)
-            for i, v in enumerate(persentase):
-                ax.text(i, v + 2, f"{v:.2f}%", ha="center", fontsize=10)
-            st.pyplot(fig)
-            
-            # **Menampilkan Pie Chart**
-            st.write("### 🎯 Distribusi Tidak Layak dalam Pie Chart")
-            fig_pie, ax_pie = plt.subplots(figsize=(6, 6))
-            ax_pie.pie(persentase, labels=kategori, autopct='%1.1f%%', colors=['red', 'orange', 'blue'], startangle=140)
-            ax_pie.axis('equal')
-            st.pyplot(fig_pie)
-            
-            # **Menampilkan Tabel Hasil**
-            st.write("### 📋 Tabel Persentase dan Jumlah Tidak Layak")
-            hasil_df = pd.DataFrame({"Kategori": kategori, "Jumlah": jumlah, "Persentase (%)": persentase})
-            st.dataframe(hasil_df)
-        else:
-            st.error("Kolom yang diperlukan tidak ditemukan dalam dataset. Pastikan dataset memiliki format yang benar.")
-    except Exception as e:
-        st.error(f"Terjadi kesalahan saat membaca file: {e}")
+notebook = load_notebook(NOTEBOOK_FILE)
+
+# Menampilkan Markdown dari Notebook
+st.subheader("Deskripsi Analisis")
+markdown_cells = extract_markdown_cells(notebook)
+for md in markdown_cells:
+    st.markdown(md)
+
+# Menampilkan kode dari Notebook
+st.subheader("Kode yang digunakan")
+code_cells = extract_code_cells(notebook)
+for code in code_cells:
+    with st.expander("Lihat Kode"):
+        st.code(code, language='python')
+
+# Visualisasi Data (Jika ada DataFrame yang bisa diolah)
+st.subheader("Visualisasi Data")
+
+def load_dataframe():
+    for cell in code_cells:
+        if "pd.read" in cell:
+            try:
+                exec_globals = {}
+                exec(cell, exec_globals)
+                for var in exec_globals.values():
+                    if isinstance(var, pd.DataFrame):
+                        return var
+            except Exception as e:
+                st.error(f"Gagal mengeksekusi kode: {e}")
+    return None
+
+df = load_dataframe()
+if df is not None:
+    st.write("Data yang ditemukan:")
+    st.dataframe(df.head())
+
+    # Membuat visualisasi sederhana
+    st.write("Distribusi Data")
+    fig, ax = plt.subplots()
+    df.hist(figsize=(8, 6), ax=ax)
+    st.pyplot(fig)
 else:
-    st.info("Silakan upload file CSV untuk memulai analisis.")
+    st.warning("Tidak ditemukan DataFrame dalam notebook.")
