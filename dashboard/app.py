@@ -20,14 +20,15 @@ if uploaded_file is not None:
         df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8')
         st.write("### 🔍 Data yang Diunggah")
         st.dataframe(df.head(10))
-        
-        # Konversi kolom yang seharusnya numerik
-        numeric_columns = ["ventilasi", "sanitasi", "perilaku"]
-        for col in numeric_columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')  # Ubah teks menjadi angka
-        
-        df[numeric_columns] = df[numeric_columns].fillna(0)  # Gantilah NaN dengan 0
-        
+
+        # Konversi kolom yang diperlukan ke numerik untuk menghindari error
+        df["ventilasi"] = pd.to_numeric(df["ventilasi"], errors='coerce')
+        df["sanitasi"] = pd.to_numeric(df["sanitasi"], errors='coerce')
+        df["perilaku"] = pd.to_numeric(df["perilaku"], errors='coerce')
+
+        # Mengisi nilai NaN dengan 0 agar tidak menyebabkan error
+        df.fillna(0, inplace=True)
+
         # Menambahkan kolom 'Kategori' berdasarkan kondisi tertentu
         df["Kategori"] = df.apply(lambda row: "Layak" if row["ventilasi"] > 2 and row["dinding"] == "permanen" else "Tidak Layak", axis=1)
 
@@ -45,9 +46,16 @@ if uploaded_file is not None:
             "Jumlah Pasien per Puskesmas",
             "Tren Kunjungan Pasien",
             "Gender vs Jumlah Pasien",
-            "Pasien vs Pekerjaan"
+            "Pasien vs Pekerjaan",
+            "Pasien vs Kondisi Lantai Rumah",
+            "Pasien vs Jenis Langit-Langit Rumah",
+            "Pasien vs Perilaku Merokok",
+            "Pasien vs Anggota Keluarga Merokok",
+            "Pasien vs Kebiasaan Membuka Jendela Kamar",
+            "Pasien vs Jenis Dinding Rumah",
+            "Pasien vs Ventilasi Rumah"
         ])
-        
+
         # Visualisasi Berdasarkan Pilihan
         if visual_option == "Kategori Rumah, Sanitasi, Perilaku Tidak Layak":
             kategori_counts = df["Kategori"].value_counts()
@@ -56,6 +64,37 @@ if uploaded_file is not None:
             ax.set_xlabel("Kategori")
             ax.set_ylabel("Jumlah")
             ax.set_title("Distribusi Kategori Rumah Layak dan Tidak Layak")
+            st.pyplot(fig)
+
+        elif visual_option == "Jumlah Pasien per Puskesmas":
+            puskesmas_counts = df.groupby("puskesmas")["pasien"].count().reset_index()
+            puskesmas_counts.columns = ["puskesmas", "jumlah_pasien"]
+            fig, ax = plt.subplots(figsize=(10, 5))
+            sns.barplot(data=puskesmas_counts, x="jumlah_pasien", y="puskesmas", ax=ax)
+            ax.set_title("Jumlah Pasien per Puskesmas")
+            st.pyplot(fig)
+
+        elif visual_option == "Tren Kunjungan Pasien":
+            df["date_start"] = pd.to_datetime(df["date_start"], errors="coerce")
+            df["year_month"] = df["date_start"].dt.to_period("M")
+            date_counts = df.groupby("year_month")["pasien"].count().reset_index()
+            fig, ax = plt.subplots()
+            sns.lineplot(data=date_counts, x="year_month", y="pasien", marker="o", ax=ax)
+            ax.set_title("Tren Kunjungan Pasien")
+            st.pyplot(fig)
+
+        elif visual_option == "Gender vs Jumlah Pasien":
+            gender_counts = df.groupby("gender")["pasien"].count().reset_index()
+            fig, ax = plt.subplots()
+            sns.barplot(data=gender_counts, x="pasien", y="gender", ax=ax)
+            ax.set_title("Gender vs Jumlah Pasien")
+            st.pyplot(fig)
+
+        elif visual_option == "Pasien vs Pekerjaan":
+            pekerjaan_counts = df.groupby("pekerjaan")["pasien"].count().reset_index()
+            fig, ax = plt.subplots()
+            sns.barplot(data=pekerjaan_counts, x="pasien", y="pekerjaan", ax=ax)
+            ax.set_title("Pekerjaan vs Jumlah Pasien")
             st.pyplot(fig)
 
     except Exception as e:
