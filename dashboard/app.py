@@ -21,6 +21,16 @@ if uploaded_file is not None:
         st.write("### 🔍 Data yang Diunggah")
         st.dataframe(df.head(10))
         
+        # Menambahkan kolom 'Kategori' berdasarkan kondisi tertentu
+        df["Kategori"] = df.apply(lambda row: "Layak" if row["ventilasi"] > 2 and row["dinding"] == "permanen" else "Tidak Layak", axis=1)
+
+        # Menambahkan kolom 'Skor Kelayakan' sebagai contoh perhitungan
+        faktor_kelayakan = ["ventilasi", "sanitasi", "perilaku"]
+        df["Skor Kelayakan"] = df[faktor_kelayakan].sum(axis=1) / len(faktor_kelayakan)
+
+        st.write("### ✅ Data dengan Kategori dan Skor Kelayakan")
+        st.dataframe(df[["Kategori", "Skor Kelayakan"]].head(10))
+
         # Pilihan Visualisasi
         st.sidebar.header("📊 Pilih Visualisasi")
         visual_option = st.sidebar.selectbox("Pilih Grafik", [
@@ -40,15 +50,14 @@ if uploaded_file is not None:
         
         # Visualisasi Berdasarkan Pilihan
         if visual_option == "Kategori Rumah, Sanitasi, Perilaku Tidak Layak":
-            kategori = ["Rumah Tidak Layak", "Sanitasi Tidak Layak", "Perilaku Tidak Baik"]
-            persentase = [30, 45, 25]  # Contoh nilai
+            kategori_counts = df["Kategori"].value_counts()
             fig, ax = plt.subplots()
-            ax.bar(kategori, persentase, color=['red', 'orange', 'blue'])
+            ax.bar(kategori_counts.index, kategori_counts.values, color=['red', 'blue'])
             ax.set_xlabel("Kategori")
-            ax.set_ylabel("Persentase (%)")
-            ax.set_title("Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak")
+            ax.set_ylabel("Jumlah")
+            ax.set_title("Distribusi Kategori Rumah Layak dan Tidak Layak")
             st.pyplot(fig)
-        
+
         elif visual_option == "Jumlah Pasien per Puskesmas":
             puskesmas_counts = df.groupby("puskesmas")["pasien"].count().reset_index()
             puskesmas_counts.columns = ["puskesmas", "jumlah_pasien"]
@@ -69,14 +78,14 @@ if uploaded_file is not None:
         elif visual_option == "Gender vs Jumlah Pasien":
             gender_counts = df.groupby("gender")["pasien"].count().reset_index()
             fig, ax = plt.subplots()
-            sns.barplot(data=gender_counts, x="jumlah_pasien", y="gender", ax=ax)
+            sns.barplot(data=gender_counts, x="pasien", y="gender", ax=ax)
             ax.set_title("Gender vs Jumlah Pasien")
             st.pyplot(fig)
         
         elif visual_option == "Pasien vs Pekerjaan":
             pekerjaan_counts = df.groupby("pekerjaan")["pasien"].count().reset_index()
             fig, ax = plt.subplots()
-            sns.barplot(data=pekerjaan_counts, x="jumlah_pasien", y="pekerjaan", ax=ax)
+            sns.barplot(data=pekerjaan_counts, x="pasien", y="pekerjaan", ax=ax)
             ax.set_title("Pekerjaan vs Jumlah Pasien")
             st.pyplot(fig)
         
