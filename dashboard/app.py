@@ -26,21 +26,21 @@ if uploaded_file is not None:
         st.dataframe(df.head(10))
 
         # Pastikan kolom yang diperlukan ada dalam dataset
-        required_columns = ["ventilasi", "sarana_air_bersih", "perilaku", "dinding"]
+        required_columns = ["ventilasi", "sarana_air_bersih", "perilaku_merokok", "dinding"]
         for col in required_columns:
             if col not in df.columns:
                 st.error(f"Kolom '{col}' tidak ditemukan dalam dataset. Pastikan CSV memiliki kolom ini.")
                 st.stop()
 
         # Konversi kolom ke tipe numerik untuk menghindari error dalam perhitungan
-        for col in ["ventilasi", "sarana_air_bersih", "perilaku"]:
+        for col in ["ventilasi", "sarana_air_bersih", "perilaku_merokok"]:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
         # Menambahkan kolom 'Kategori' berdasarkan kondisi tertentu
         df["Kategori"] = df.apply(lambda row: "Layak" if row["ventilasi"] > 2 and row["dinding"] == "permanen" else "Tidak Layak", axis=1)
 
         # Menambahkan kolom 'Skor Kelayakan'
-        df["Skor Kelayakan"] = df[["ventilasi", "sarana_air_bersih", "perilaku"]].sum(axis=1) / 3
+        df["Skor Kelayakan"] = df[["ventilasi", "sarana_air_bersih", "perilaku_merokok"]].sum(axis=1) / 3
 
         st.write("### ✅ Data dengan Kategori dan Skor Kelayakan")
         st.dataframe(df[["Kategori", "Skor Kelayakan"]].head(10))
