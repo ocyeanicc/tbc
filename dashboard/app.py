@@ -1,18 +1,13 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
-import io
 
-# Konfigurasi Halaman Streamlit
+# Konfigurasi halaman Streamlit
 st.set_page_config(page_title="Dashboard Analisis TBC", layout="wide")
 
 # Judul Aplikasi
 st.title("📊 Dashboard Analisis TBC")
-st.write(
-    "Aplikasi ini membantu dalam menganalisis hubungan antara sanitasi, perilaku, rumah, "
-    "dan penyakit TBC berdasarkan dataset yang diunggah."
-)
+st.write("Aplikasi ini menganalisis hubungan antara sanitasi, perilaku, rumah, dan penyakit TBC berdasarkan dataset yang diunggah.")
 
 # **Fitur Upload File**
 st.sidebar.header("📂 Upload Dataset")
@@ -20,52 +15,52 @@ uploaded_file = st.sidebar.file_uploader("Pilih file CSV", type=["csv"])
 
 if uploaded_file is not None:
     try:
-        # Membaca dataset dengan pemisah yang sesuai (sesuaikan jika perlu)
+        # Membaca dataset dengan pemisah ; dan encoding UTF-8
         df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8')
 
-        # **Menampilkan Data yang Diunggah**
-        st.write("### 🔍 Data yang Diunggah")
-        st.dataframe(df)  # Menampilkan semua data tanpa limit
+        # **Menghitung Persentase Tidak Layak**
+        if "Label" in df.columns:
+            persentase_tidak_layak_rumah = (df[df["Kategori"] == "Rumah"]["Label"].value_counts(normalize=True).get("Tidak Layak", 0)) * 100
+            persentase_tidak_layak_sanitasi = (df[df["Kategori"] == "Sanitasi"]["Label"].value_counts(normalize=True).get("Tidak Layak", 0)) * 100
+            persentase_tidak_baik_perilaku = (df[df["Kategori"] == "Perilaku"]["Label"].value_counts(normalize=True).get("Tidak Layak", 0)) * 100
 
-        # **Menampilkan Info Dataset secara benar**
-        buffer = io.StringIO()
-        df.info(buf=buffer)
-        info_str = buffer.getvalue()
-        st.subheader("📋 Info Dataset")
-        st.text(info_str)  # Menampilkan info dataset dengan format yang lebih baik
+            # **Menampilkan Bar Chart**
+            st.write("### 📊 Persentase Tidak Layak")
+            kategori = ["Rumah Tidak Layak", "Sanitasi Tidak Layak", "Perilaku Tidak Baik"]
+            persentase = [persentase_tidak_layak_rumah, persentase_tidak_layak_sanitasi, persentase_tidak_baik_perilaku]
 
-        # **Menampilkan Statistik Dasar**
-        st.write("### 📊 Statistik Dasar")
-        st.write(df.describe())
+            # Urutkan dari terbesar ke terkecil
+            sorted_indices = sorted(range(len(persentase)), key=lambda i: persentase[i], reverse=True)
+            kategori = [kategori[i] for i in sorted_indices]
+            persentase = [persentase[i] for i in sorted_indices]
 
-        # **Visualisasi Sesuai File IPYNB**
-        st.write("### 📈 Visualisasi Data")
+            fig, ax = plt.subplots(figsize=(8, 5))
+            ax.bar(kategori, persentase, color=['red', 'orange', 'blue'])
 
-        # **Hitung Jumlah & Persentase Kategori "Tidak Layak"**
-        if 'kategori' in df.columns:  # Pastikan kolom kategori ada
-            kategori_counts = df['kategori'].value_counts()
-            kategori_percent = df['kategori'].value_counts(normalize=True) * 100
+            # Menambahkan label
+            ax.set_xlabel("Kategori")
+            ax.set_ylabel("Persentase (%)")
+            ax.set_title("Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak")
+            ax.set_ylim(0, 100)
+            ax.grid(axis="y", linestyle="--", alpha=0.7)
 
-            kategori_df = pd.DataFrame({
-                'Jumlah': kategori_counts,
-                'Persentase': kategori_percent.map('{:.2f}%'.format)
-            })
+            # Menampilkan nilai di atas batang
+            for i, v in enumerate(persentase):
+                ax.text(i, v + 2, f"{v:.2f}%", ha="center", fontsize=10)
 
-            st.write("### 📊 Distribusi Kategori")
-            st.dataframe(kategori_df)  # Menampilkan jumlah dan persentase di tabel
-
-            # **Pie Chart Kategori**
-            fig, ax = plt.subplots()
-            kategori_counts.plot.pie(
-                autopct=lambda p: '{:.1f}%\n({:.0f})'.format(p, (p/100)*sum(kategori_counts)), 
-                ax=ax, cmap='coolwarm', startangle=90
-            )
-            ax.set_ylabel('')
-            ax.set_title("Distribusi Kategori")
+            # Tampilkan Bar Chart
             st.pyplot(fig)
 
+            # **Menampilkan Pie Chart**
+            st.write("### 🎯 Distribusi Tidak Layak dalam Pie Chart")
+            fig_pie, ax_pie = plt.subplots(figsize=(6, 6))
+            ax_pie.pie(persentase, labels=kategori, autopct='%1.1f%%', colors=['red', 'orange', 'blue'], startangle=140)
+            ax_pie.axis('equal')  # Agar pie chart berbentuk lingkaran sempurna
+
+            st.pyplot(fig_pie)
+
         else:
-            st.warning("Kolom 'kategori' tidak ditemukan dalam dataset.")
+            st.error("Kolom 'Label' atau 'Kategori' tidak ditemukan dalam dataset. Pastikan dataset yang diunggah sesuai format.")
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat membaca file: {e}")
