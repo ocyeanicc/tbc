@@ -1,65 +1,63 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
+import io
 
-# Streamlit UI
-st.title("Dashboard Analisis TBC")
-st.write("Unggah file CSV untuk dianalisis.")
+# Konfigurasi halaman Streamlit
+st.set_page_config(page_title="Dashboard Analisis TBC", layout="wide")
 
-# File uploader
-uploaded_file = st.file_uploader("Unggah file CSV", type=["csv"])
+# Judul Aplikasi
+st.title("📊 Dashboard Analisis TBC")
+st.write("Aplikasi ini membantu dalam menganalisis hubungan antara sanitasi, perilaku, rumah, dan penyakit TBC berdasarkan dataset yang diunggah.")
+
+# **Fitur Upload File**
+st.sidebar.header("📂 Upload Dataset")
+uploaded_file = st.sidebar.file_uploader("Pilih file CSV", type=["csv"])
 
 if uploaded_file is not None:
     try:
-        # Mencoba membaca file CSV dengan deteksi otomatis delimiter
-        df = pd.read_csv(uploaded_file, sep=None, engine="python")
-        st.success("File berhasil dibaca!")
+        # Membaca dataset dengan pemisah ; dan encoding UTF-8
+        df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8')
         
-        # Menampilkan data tanpa header kolom
-        st.subheader("Data yang Digunakan")
-        st.dataframe(df.head().style.hide(axis='columns'))
+        # **Menampilkan Data yang Diunggah**
+        st.write("### 🔍 Data yang Diunggah")
+        st.dataframe(df.head(10))
 
-        # Pastikan kolom yang diperlukan ada dalam dataset
-        required_columns = ['rumah_tidak_layak', 'sanitasi_tidak_layak', 'perilaku_tidak_baik']
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        # **Menampilkan Info Dataset (Diperbaiki)**
+        buffer = io.StringIO()
+        df.info(buf=buffer)  # ✅ Simpan output info dataset ke buffer
+        info_str = buffer.getvalue()  # ✅ Ambil isi buffer sebagai string
+        st.text_area("ℹ️ Info Dataset", info_str, height=200)
 
-        if missing_columns:
-            st.error("Kolom yang dibutuhkan tidak ditemukan dalam dataset.")
+        # **Menampilkan Statistik Dasar**
+        st.write("### 📊 Statistik Dasar")
+        st.write(df.describe())
+
+        # **Visualisasi: Histogram dari Kolom Numerik**
+        st.write("### 📈 Distribusi Data")
+        numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
+
+        if len(numeric_columns) > 0:
+            selected_column = st.selectbox("Pilih kolom untuk histogram:", numeric_columns)
+            fig, ax = plt.subplots(figsize=(8, 4))
+            sns.histplot(df[selected_column], bins=30, kde=True, ax=ax)
+            ax.set_title(f'Distribusi {selected_column}')
+            st.pyplot(fig)
         else:
-            # Menghitung metrik dari data
-            total_data = len(df)
-            rumah_tidak_layak = (df['rumah_tidak_layak'].sum() / total_data) * 100
-            sanitasi_tidak_layak = (df['sanitasi_tidak_layak'].sum() / total_data) * 100
-            perilaku_tidak_baik = (df['perilaku_tidak_baik'].sum() / total_data) * 100
+            st.warning("Dataset tidak memiliki kolom numerik untuk divisualisasikan.")
 
-            st.write(f"**Persentase Rumah Tidak Layak:** {rumah_tidak_layak:.2f}%")
-            st.write(f"**Persentase Sanitasi Tidak Layak:** {sanitasi_tidak_layak:.2f}%")
-            st.write(f"**Persentase Perilaku Tidak Baik:** {perilaku_tidak_baik:.2f}%")
-
-            # Pilihan visualisasi
-            st.subheader("Pilih Visualisasi")
-            opsi_visualisasi = [
-                "Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak"
-            ]
-            pilihan = st.selectbox("Pilih Visualisasi", opsi_visualisasi)
-
-            # Menampilkan visualisasi
-            if pilihan == "Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak":
-                st.subheader("📊 Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak")
-                fig, ax = plt.subplots()
-                kategori = ["Rumah Tidak Layak", "Perilaku Tidak Baik", "Sanitasi Tidak Layak"]
-                nilai = [rumah_tidak_layak, perilaku_tidak_baik, sanitasi_tidak_layak]
-                warna = ["red", "orange", "blue"]
-                bars = ax.bar(kategori, nilai, color=warna)
-
-                for bar in bars:
-                    height = bar.get_height()
-                    ax.text(bar.get_x() + bar.get_width()/2, height, f'{height:.2f}%', ha='center', va='bottom')
-
-                ax.set_ylabel("Persentase (%)")
-                ax.set_xlabel("Kategori")
-                ax.set_title("Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak")
-                st.pyplot(fig)
+        # **Visualisasi: Korelasi Antar Variabel**
+        st.write("### 🔗 Korelasi Antar Variabel")
+        if len(numeric_columns) > 1:
+            fig, ax = plt.subplots(figsize=(10, 6))
+            sns.heatmap(df[numeric_columns].corr(), annot=True, cmap="coolwarm", fmt=".2f", ax=ax)
+            st.pyplot(fig)
+        else:
+            st.warning("Dataset memiliki kurang dari dua kolom numerik, tidak dapat menampilkan heatmap korelasi.")
+    
     except Exception as e:
-        st.error(f"Terjadi kesalahan saat membaca file CSV: {e}")
-        st.write("Cek apakah delimiter di dalam file menggunakan ',' atau ';'.")
+        st.error(f"Terjadi kesalahan saat membaca file: {e}")
+
+else:
+    st.info("Silakan upload file CSV untuk memulai analisis.")
