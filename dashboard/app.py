@@ -18,23 +18,29 @@ if uploaded_file is not None:
     try:
         # Membaca dataset
         df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8')
+
+        # Membersihkan nama kolom (menghapus spasi tersembunyi dan mengubah ke huruf kecil)
+        df.columns = df.columns.str.strip().str.lower()
+
         st.write("### 🔍 Data yang Diunggah")
         st.dataframe(df.head(10))
 
-        # Konversi kolom yang diperlukan ke numerik untuk menghindari error
-        df["ventilasi"] = pd.to_numeric(df["ventilasi"], errors='coerce')
-        df["sanitasi"] = pd.to_numeric(df["sanitasi"], errors='coerce')
-        df["perilaku"] = pd.to_numeric(df["perilaku"], errors='coerce')
+        # Pastikan kolom yang diperlukan ada dalam dataset
+        required_columns = ["ventilasi", "sanitasi", "perilaku", "dinding"]
+        for col in required_columns:
+            if col not in df.columns:
+                st.error(f"Kolom '{col}' tidak ditemukan dalam dataset. Pastikan CSV memiliki kolom ini.")
+                st.stop()
 
-        # Mengisi nilai NaN dengan 0 agar tidak menyebabkan error
-        df.fillna(0, inplace=True)
+        # Konversi kolom ke tipe numerik untuk menghindari error dalam perhitungan
+        for col in ["ventilasi", "sanitasi", "perilaku"]:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
         # Menambahkan kolom 'Kategori' berdasarkan kondisi tertentu
         df["Kategori"] = df.apply(lambda row: "Layak" if row["ventilasi"] > 2 and row["dinding"] == "permanen" else "Tidak Layak", axis=1)
 
-        # Menambahkan kolom 'Skor Kelayakan' sebagai contoh perhitungan
-        faktor_kelayakan = ["ventilasi", "sanitasi", "perilaku"]
-        df["Skor Kelayakan"] = df[faktor_kelayakan].sum(axis=1) / len(faktor_kelayakan)
+        # Menambahkan kolom 'Skor Kelayakan'
+        df["Skor Kelayakan"] = df[["ventilasi", "sanitasi", "perilaku"]].sum(axis=1) / 3
 
         st.write("### ✅ Data dengan Kategori dan Skor Kelayakan")
         st.dataframe(df[["Kategori", "Skor Kelayakan"]].head(10))
@@ -55,7 +61,7 @@ if uploaded_file is not None:
             "Pasien vs Jenis Dinding Rumah",
             "Pasien vs Ventilasi Rumah"
         ])
-
+        
         # Visualisasi Berdasarkan Pilihan
         if visual_option == "Kategori Rumah, Sanitasi, Perilaku Tidak Layak":
             kategori_counts = df["Kategori"].value_counts()
@@ -67,35 +73,47 @@ if uploaded_file is not None:
             st.pyplot(fig)
 
         elif visual_option == "Jumlah Pasien per Puskesmas":
-            puskesmas_counts = df.groupby("puskesmas")["pasien"].count().reset_index()
-            puskesmas_counts.columns = ["puskesmas", "jumlah_pasien"]
-            fig, ax = plt.subplots(figsize=(10, 5))
-            sns.barplot(data=puskesmas_counts, x="jumlah_pasien", y="puskesmas", ax=ax)
-            ax.set_title("Jumlah Pasien per Puskesmas")
-            st.pyplot(fig)
+            if "puskesmas" in df.columns and "pasien" in df.columns:
+                puskesmas_counts = df.groupby("puskesmas")["pasien"].count().reset_index()
+                puskesmas_counts.columns = ["puskesmas", "jumlah_pasien"]
+                fig, ax = plt.subplots(figsize=(10, 5))
+                sns.barplot(data=puskesmas_counts, x="jumlah_pasien", y="puskesmas", ax=ax)
+                ax.set_title("Jumlah Pasien per Puskesmas")
+                st.pyplot(fig)
+            else:
+                st.warning("Kolom 'puskesmas' atau 'pasien' tidak ditemukan dalam dataset.")
 
         elif visual_option == "Tren Kunjungan Pasien":
-            df["date_start"] = pd.to_datetime(df["date_start"], errors="coerce")
-            df["year_month"] = df["date_start"].dt.to_period("M")
-            date_counts = df.groupby("year_month")["pasien"].count().reset_index()
-            fig, ax = plt.subplots()
-            sns.lineplot(data=date_counts, x="year_month", y="pasien", marker="o", ax=ax)
-            ax.set_title("Tren Kunjungan Pasien")
-            st.pyplot(fig)
+            if "date_start" in df.columns and "pasien" in df.columns:
+                df["date_start"] = pd.to_datetime(df["date_start"], errors="coerce")
+                df["year_month"] = df["date_start"].dt.to_period("M")
+                date_counts = df.groupby("year_month")["pasien"].count().reset_index()
+                fig, ax = plt.subplots()
+                sns.lineplot(data=date_counts, x="year_month", y="pasien", marker="o", ax=ax)
+                ax.set_title("Tren Kunjungan Pasien")
+                st.pyplot(fig)
+            else:
+                st.warning("Kolom 'date_start' atau 'pasien' tidak ditemukan dalam dataset.")
 
         elif visual_option == "Gender vs Jumlah Pasien":
-            gender_counts = df.groupby("gender")["pasien"].count().reset_index()
-            fig, ax = plt.subplots()
-            sns.barplot(data=gender_counts, x="pasien", y="gender", ax=ax)
-            ax.set_title("Gender vs Jumlah Pasien")
-            st.pyplot(fig)
+            if "gender" in df.columns and "pasien" in df.columns:
+                gender_counts = df.groupby("gender")["pasien"].count().reset_index()
+                fig, ax = plt.subplots()
+                sns.barplot(data=gender_counts, x="pasien", y="gender", ax=ax)
+                ax.set_title("Gender vs Jumlah Pasien")
+                st.pyplot(fig)
+            else:
+                st.warning("Kolom 'gender' atau 'pasien' tidak ditemukan dalam dataset.")
 
         elif visual_option == "Pasien vs Pekerjaan":
-            pekerjaan_counts = df.groupby("pekerjaan")["pasien"].count().reset_index()
-            fig, ax = plt.subplots()
-            sns.barplot(data=pekerjaan_counts, x="pasien", y="pekerjaan", ax=ax)
-            ax.set_title("Pekerjaan vs Jumlah Pasien")
-            st.pyplot(fig)
+            if "pekerjaan" in df.columns and "pasien" in df.columns:
+                pekerjaan_counts = df.groupby("pekerjaan")["pasien"].count().reset_index()
+                fig, ax = plt.subplots()
+                sns.barplot(data=pekerjaan_counts, x="pasien", y="pekerjaan", ax=ax)
+                ax.set_title("Pekerjaan vs Jumlah Pasien")
+                st.pyplot(fig)
+            else:
+                st.warning("Kolom 'pekerjaan' atau 'pasien' tidak ditemukan dalam dataset.")
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat membaca file: {e}")
