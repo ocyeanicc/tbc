@@ -18,16 +18,13 @@ if uploaded_file is not None:
         # Menampilkan data
         st.subheader("Data yang Digunakan")
         st.dataframe(df.head())
-        
-        # Menampilkan daftar kolom untuk debugging jika ada error
-        st.write("Kolom dalam dataset:", df.columns.tolist())
 
         # Pastikan kolom yang diperlukan ada dalam dataset
         required_columns = ['rumah_tidak_layak', 'sanitasi_tidak_layak', 'perilaku_tidak_baik']
         missing_columns = [col for col in required_columns if col not in df.columns]
 
         if missing_columns:
-            st.error(f"Kolom berikut tidak ditemukan dalam dataset: {missing_columns}")
+            st.error("Kolom yang dibutuhkan tidak ditemukan dalam dataset.")
         else:
             # Menghitung metrik dari data
             total_data = len(df)
