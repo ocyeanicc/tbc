@@ -27,16 +27,22 @@ if uploaded_file is not None:
         st.write(df.columns.tolist())
         
         # Pastikan kolom yang diperlukan ada dalam dataset
-        required_columns = {"Kategori", "Label"}
+        required_columns = {"status_rumah", "sarana_air_bersih", "jamban", "perilaku_merokok", "membersihkan_rumah"}
         if required_columns.issubset(df.columns):
-            # Menghitung jumlah dan persentase "Tidak Layak" untuk setiap kategori
-            kategori_list = ["Rumah", "Sanitasi", "Perilaku"]
-            hasil = []
-            for kategori in kategori_list:
-                total = df[df["Kategori"] == kategori].shape[0]
-                tidak_layak = df[(df["Kategori"] == kategori) & (df["Label"] == "Tidak Layak")].shape[0]
+            # Fungsi untuk menghitung jumlah dan persentase "Tidak Layak"
+            def calculate_percentage(column, condition):
+                total = df.shape[0]
+                tidak_layak = df[df[column] == condition].shape[0]
                 persentase = (tidak_layak / total * 100) if total > 0 else 0
-                hasil.append((kategori, tidak_layak, persentase))
+                return tidak_layak, persentase
+            
+            hasil = [
+                ("Rumah Tidak Layak", *calculate_percentage("status_rumah", "Tidak Layak")),
+                ("Sanitasi Tidak Layak", *calculate_percentage("sarana_air_bersih", "Tidak Layak")),
+                ("Sanitasi Tidak Layak", *calculate_percentage("jamban", "Tidak Layak")),
+                ("Perilaku Tidak Baik", *calculate_percentage("perilaku_merokok", "Ya")),
+                ("Perilaku Tidak Baik", *calculate_percentage("membersihkan_rumah", "Jarang"))
+            ]
             
             # Menampilkan hasil dalam tabel
             st.write("### 📊 Persentase Tidak Layak")
@@ -45,7 +51,7 @@ if uploaded_file is not None:
             
             # Menampilkan Bar Chart
             fig, ax = plt.subplots(figsize=(8, 5))
-            ax.bar(hasil_df["Kategori"], hasil_df["Persentase (%)"], color=['red', 'orange', 'blue'])
+            ax.bar(hasil_df["Kategori"], hasil_df["Persentase (%)"], color=['red', 'orange', 'blue', 'purple', 'green'])
             ax.set_xlabel("Kategori")
             ax.set_ylabel("Persentase (%)")
             ax.set_title("Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak")
@@ -58,11 +64,11 @@ if uploaded_file is not None:
             # Menampilkan Pie Chart
             st.write("### 🎯 Distribusi Tidak Layak dalam Pie Chart")
             fig_pie, ax_pie = plt.subplots(figsize=(6, 6))
-            ax_pie.pie(hasil_df["Persentase (%)"], labels=hasil_df["Kategori"], autopct='%1.1f%%', colors=['red', 'orange', 'blue'], startangle=140)
+            ax_pie.pie(hasil_df["Persentase (%)"], labels=hasil_df["Kategori"], autopct='%1.1f%%', colors=['red', 'orange', 'blue', 'purple', 'green'], startangle=140)
             ax_pie.axis('equal')
             st.pyplot(fig_pie)
         else:
-            st.error("Kolom 'Kategori' atau 'Label' tidak ditemukan dalam dataset. Pastikan dataset memiliki format yang benar.")
+            st.error("Kolom yang diperlukan tidak ditemukan dalam dataset. Pastikan dataset memiliki format yang benar.")
     except Exception as e:
         st.error(f"Terjadi kesalahan saat membaca file: {e}")
 else:
