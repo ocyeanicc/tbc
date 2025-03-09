@@ -11,8 +11,8 @@ uploaded_file = st.file_uploader("Unggah file CSV", type=["csv"])
 
 if uploaded_file is not None:
     try:
-        # Membaca file CSV
-        df = pd.read_csv(uploaded_file)
+        # Mencoba membaca file CSV dengan deteksi otomatis delimiter
+        df = pd.read_csv(uploaded_file, sep=None, engine="python")
         st.success("File berhasil dibaca!")
         
         # Menampilkan data
@@ -63,3 +63,4 @@ if uploaded_file is not None:
             )
     except Exception as e:
         st.error(f"Terjadi kesalahan saat membaca file CSV: {e}")
+        st.write("Cek apakah delimiter di dalam file menggunakan ',' atau ';'.")
