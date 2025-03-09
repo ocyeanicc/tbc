@@ -26,21 +26,21 @@ if uploaded_file is not None:
         st.dataframe(df.head(10))
 
         # Pastikan kolom yang diperlukan ada dalam dataset
-        required_columns = ["ventilasi", "sarana_sanitasi", "perilaku", "dinding"]
+        required_columns = ["ventilasi", "sarana_air_bersih", "perilaku", "dinding"]
         for col in required_columns:
             if col not in df.columns:
                 st.error(f"Kolom '{col}' tidak ditemukan dalam dataset. Pastikan CSV memiliki kolom ini.")
                 st.stop()
 
         # Konversi kolom ke tipe numerik untuk menghindari error dalam perhitungan
-        for col in ["ventilasi", "sarana_sanitasi", "perilaku"]:
+        for col in ["ventilasi", "sarana_air_bersih", "perilaku"]:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
         # Menambahkan kolom 'Kategori' berdasarkan kondisi tertentu
         df["Kategori"] = df.apply(lambda row: "Layak" if row["ventilasi"] > 2 and row["dinding"] == "permanen" else "Tidak Layak", axis=1)
 
         # Menambahkan kolom 'Skor Kelayakan'
-        df["Skor Kelayakan"] = df[["ventilasi", "sarana_sanitasi", "perilaku"]].sum(axis=1) / 3
+        df["Skor Kelayakan"] = df[["ventilasi", "sarana_air_bersih", "perilaku"]].sum(axis=1) / 3
 
         st.write("### ✅ Data dengan Kategori dan Skor Kelayakan")
         st.dataframe(df[["Kategori", "Skor Kelayakan"]].head(10))
@@ -52,14 +52,7 @@ if uploaded_file is not None:
             "Jumlah Pasien per Puskesmas",
             "Tren Kunjungan Pasien",
             "Gender vs Jumlah Pasien",
-            "Pasien vs Pekerjaan",
-            "Pasien vs Kondisi Lantai Rumah",
-            "Pasien vs Jenis Langit-Langit Rumah",
-            "Pasien vs Perilaku Merokok",
-            "Pasien vs Anggota Keluarga Merokok",
-            "Pasien vs Kebiasaan Membuka Jendela Kamar",
-            "Pasien vs Jenis Dinding Rumah",
-            "Pasien vs Ventilasi Rumah"
+            "Pasien vs Pekerjaan"
         ])
         
         # Visualisasi Berdasarkan Pilihan
