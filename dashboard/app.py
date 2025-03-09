@@ -1,65 +1,63 @@
 import streamlit as st
-import nbformat
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
+import io
 
-# Streamlit UI
-st.title("Dashboard Analisis TBC")
-st.write("Unggah file Jupyter Notebook untuk dianalisis.")
+# Konfigurasi halaman Streamlit
+st.set_page_config(page_title="Dashboard Analisis TBC", layout="wide")
 
-# File uploader
-uploaded_file = st.file_uploader("Unggah file Jupyter Notebook", type=["ipynb"])
+# Judul Aplikasi
+st.title("📊 Dashboard Analisis TBC")
+st.write("Aplikasi ini membantu dalam menganalisis hubungan antara sanitasi, perilaku, rumah, dan penyakit TBC berdasarkan dataset yang diunggah.")
+
+# **Fitur Upload File**
+st.sidebar.header("📂 Upload Dataset")
+uploaded_file = st.sidebar.file_uploader("Pilih file CSV", type=["csv"])
 
 if uploaded_file is not None:
     try:
-        # Membaca file notebook
-        notebook = nbformat.read(uploaded_file, as_version=4)
-        st.success("File berhasil dibaca!")
+        # Membaca dataset dengan pemisah ; dan encoding UTF-8
+        df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8')
         
-        # Fungsi untuk mengekstrak sel dari notebook
-        def extract_cells(nb, cell_type):
-            return [cell['source'] for cell in nb.cells if cell.cell_type == cell_type]
+        # **Menampilkan Data yang Diunggah**
+        st.write("### 🔍 Data yang Diunggah")
+        st.dataframe(df.head(10))
 
-        # Menampilkan Markdown dari Notebook
-        st.subheader("Deskripsi Analisis")
-        markdown_cells = extract_cells(notebook, "markdown")
-        for md in markdown_cells:
-            st.markdown(md)
+        # **Menampilkan Info Dataset (Diperbaiki)**
+        buffer = io.StringIO()
+        df.info(buf=buffer)  # ✅ Simpan output info dataset ke buffer
+        info_str = buffer.getvalue()  # ✅ Ambil isi buffer sebagai string
+        st.text_area("ℹ️ Info Dataset", info_str, height=200)
 
-        # Menampilkan kode dari Notebook
-        st.subheader("Kode yang digunakan")
-        code_cells = extract_cells(notebook, "code")
-        for code in code_cells:
-            with st.expander("Lihat Kode"):
-                st.code(code, language='python')
+        # **Menampilkan Statistik Dasar**
+        st.write("### 📊 Statistik Dasar")
+        st.write(df.describe())
 
-        # Mencari dan menampilkan DataFrame jika ada
-        st.subheader("Visualisasi Data")
-        
-        def load_dataframe():
-            for cell in code_cells:
-                if "pd.read" in cell:
-                    try:
-                        exec_globals = {}
-                        exec(cell, exec_globals)
-                        for var in exec_globals.values():
-                            if isinstance(var, pd.DataFrame):
-                                return var
-                    except Exception as e:
-                        st.error(f"Gagal mengeksekusi kode: {e}")
-            return None
+        # **Visualisasi: Histogram dari Kolom Numerik**
+        st.write("### 📈 Distribusi Data")
+        numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
 
-        df = load_dataframe()
-        if df is not None:
-            st.write("Data yang ditemukan:")
-            st.dataframe(df.head())
-
-            # Membuat visualisasi sederhana
-            st.write("Distribusi Data")
-            fig, ax = plt.subplots()
-            df.hist(figsize=(8, 6), ax=ax)
+        if len(numeric_columns) > 0:
+            selected_column = st.selectbox("Pilih kolom untuk histogram:", numeric_columns)
+            fig, ax = plt.subplots(figsize=(8, 4))
+            sns.histplot(df[selected_column], bins=30, kde=True, ax=ax)
+            ax.set_title(f'Distribusi {selected_column}')
             st.pyplot(fig)
         else:
-            st.warning("Tidak ditemukan DataFrame dalam notebook.")
+            st.warning("Dataset tidak memiliki kolom numerik untuk divisualisasikan.")
+
+        # **Visualisasi: Korelasi Antar Variabel**
+        st.write("### 🔗 Korelasi Antar Variabel")
+        if len(numeric_columns) > 1:
+            fig, ax = plt.subplots(figsize=(10, 6))
+            sns.heatmap(df[numeric_columns].corr(), annot=True, cmap="coolwarm", fmt=".2f", ax=ax)
+            st.pyplot(fig)
+        else:
+            st.warning("Dataset memiliki kurang dari dua kolom numerik, tidak dapat menampilkan heatmap korelasi.")
+    
     except Exception as e:
-        st.error(f"Terjadi kesalahan saat membaca notebook: {e}")
+        st.error(f"Terjadi kesalahan saat membaca file: {e}")
+
+else:
+    st.info("Silakan upload file CSV untuk memulai analisis.")
