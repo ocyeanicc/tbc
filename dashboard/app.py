@@ -36,37 +36,42 @@ if uploaded_file is not None:
                 persentase = (tidak_layak / total * 100) if total > 0 else 0
                 return tidak_layak, persentase
             
-            hasil = [
-                ("Rumah Tidak Layak", *calculate_percentage("status_rumah", "Tidak Layak")),
-                ("Sanitasi Tidak Layak", *calculate_percentage("sarana_air_bersih", "Tidak Layak")),
-                ("Sanitasi Tidak Layak", *calculate_percentage("jamban", "Tidak Layak")),
-                ("Perilaku Tidak Baik", *calculate_percentage("perilaku_merokok", "Ya")),
-                ("Perilaku Tidak Baik", *calculate_percentage("membersihkan_rumah", "Jarang"))
-            ]
+            persentase_tidak_layak_rumah = calculate_percentage("status_rumah", "Tidak Layak")[1]
+            persentase_tidak_layak_sanitasi = (calculate_percentage("sarana_air_bersih", "Tidak Layak")[1] + calculate_percentage("jamban", "Tidak Layak")[1]) / 2
+            persentase_tidak_baik_perilaku = (calculate_percentage("perilaku_merokok", "Ya")[1] + calculate_percentage("membersihkan_rumah", "Jarang")[1]) / 2
             
-            # Menampilkan hasil dalam tabel
-            st.write("### 📊 Persentase Tidak Layak")
-            hasil_df = pd.DataFrame(hasil, columns=["Kategori", "Jumlah Tidak Layak", "Persentase (%)"])
-            st.dataframe(hasil_df)
+            kategori = ["Rumah Tidak Layak", "Sanitasi Tidak Layak", "Perilaku Tidak Baik"]
+            persentase = [persentase_tidak_layak_rumah, persentase_tidak_layak_sanitasi, persentase_tidak_baik_perilaku]
+            
+            # Mengurutkan data dari terbesar ke terkecil
+            sorted_indices = sorted(range(len(persentase)), key=lambda i: persentase[i], reverse=True)
+            kategori = [kategori[i] for i in sorted_indices]
+            persentase = [persentase[i] for i in sorted_indices]
             
             # Menampilkan Bar Chart
+            st.write("### 📊 Persentase Tidak Layak")
             fig, ax = plt.subplots(figsize=(8, 5))
-            ax.bar(hasil_df["Kategori"], hasil_df["Persentase (%)"], color=['red', 'orange', 'blue', 'purple', 'green'])
+            ax.bar(kategori, persentase, color=['red', 'orange', 'blue'])
             ax.set_xlabel("Kategori")
             ax.set_ylabel("Persentase (%)")
             ax.set_title("Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak")
             ax.set_ylim(0, 100)
             ax.grid(axis="y", linestyle="--", alpha=0.7)
-            for i, v in enumerate(hasil_df["Persentase (%)"]):
+            for i, v in enumerate(persentase):
                 ax.text(i, v + 2, f"{v:.2f}%", ha="center", fontsize=10)
             st.pyplot(fig)
             
             # Menampilkan Pie Chart
             st.write("### 🎯 Distribusi Tidak Layak dalam Pie Chart")
             fig_pie, ax_pie = plt.subplots(figsize=(6, 6))
-            ax_pie.pie(hasil_df["Persentase (%)"], labels=hasil_df["Kategori"], autopct='%1.1f%%', colors=['red', 'orange', 'blue', 'purple', 'green'], startangle=140)
+            ax_pie.pie(persentase, labels=kategori, autopct='%1.1f%%', colors=['red', 'orange', 'blue'], startangle=140)
             ax_pie.axis('equal')
             st.pyplot(fig_pie)
+            
+            # Menampilkan Tabel Hasil
+            st.write("### 📋 Tabel Persentase Tidak Layak")
+            hasil_df = pd.DataFrame({"Kategori": kategori, "Persentase (%)": persentase})
+            st.dataframe(hasil_df)
         else:
             st.error("Kolom yang diperlukan tidak ditemukan dalam dataset. Pastikan dataset memiliki format yang benar.")
     except Exception as e:
