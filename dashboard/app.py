@@ -41,35 +41,31 @@ if uploaded_file is not None:
         # **Visualisasi Sesuai File IPYNB**
         st.write("### 📈 Visualisasi Data")
 
-        # Pilih Kolom Numerik untuk Visualisasi
-        numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
-        
-        if len(numeric_columns) > 0:
-            selected_column = st.selectbox("Pilih kolom untuk histogram:", numeric_columns)
+        # **Hitung Jumlah & Persentase Kategori "Tidak Layak"**
+        if 'kategori' in df.columns:  # Pastikan kolom kategori ada
+            kategori_counts = df['kategori'].value_counts()
+            kategori_percent = df['kategori'].value_counts(normalize=True) * 100
 
-            fig, ax = plt.subplots(figsize=(8, 4))
-            sns.histplot(df[selected_column], bins=30, kde=True, ax=ax)
-            ax.set_title(f'Distribusi {selected_column}')
-            st.pyplot(fig)
+            kategori_df = pd.DataFrame({
+                'Jumlah': kategori_counts,
+                'Persentase': kategori_percent.map('{:.2f}%'.format)
+            })
 
-        else:
-            st.warning("Dataset tidak memiliki kolom numerik untuk divisualisasikan.")
+            st.write("### 📊 Distribusi Kategori")
+            st.dataframe(kategori_df)  # Menampilkan jumlah dan persentase di tabel
 
-        # **Visualisasi Lanjutan (Sesuaikan dengan IPYNB)**
-        st.write("### 📌 Visualisasi Tambahan")
-        
-        # Contoh: Pie Chart Distribusi Kategori
-        categorical_columns = df.select_dtypes(include=['object']).columns.tolist()
-        if len(categorical_columns) > 0:
-            selected_category = st.selectbox("Pilih kolom kategori untuk pie chart:", categorical_columns)
-
+            # **Pie Chart Kategori**
             fig, ax = plt.subplots()
-            df[selected_category].value_counts().plot.pie(autopct='%1.1f%%', ax=ax, cmap='viridis')
+            kategori_counts.plot.pie(
+                autopct=lambda p: '{:.1f}%\n({:.0f})'.format(p, (p/100)*sum(kategori_counts)), 
+                ax=ax, cmap='coolwarm', startangle=90
+            )
             ax.set_ylabel('')
-            ax.set_title(f'Distribusi {selected_category}')
+            ax.set_title("Distribusi Kategori")
             st.pyplot(fig)
+
         else:
-            st.warning("Dataset tidak memiliki kolom kategori untuk divisualisasikan.")
+            st.warning("Kolom 'kategori' tidak ditemukan dalam dataset.")
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat membaca file: {e}")
