@@ -15,9 +15,9 @@ if uploaded_file is not None:
         df = pd.read_csv(uploaded_file, sep=None, engine="python")
         st.success("File berhasil dibaca!")
         
-        # Menampilkan data
+        # Menampilkan data tanpa header kolom
         st.subheader("Data yang Digunakan")
-        st.dataframe(df.head())
+        st.dataframe(df.head().style.hide(axis='columns'))
 
         # Pastikan kolom yang diperlukan ada dalam dataset
         required_columns = ['rumah_tidak_layak', 'sanitasi_tidak_layak', 'perilaku_tidak_baik']
