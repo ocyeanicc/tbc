@@ -18,21 +18,13 @@ if uploaded_file is not None:
         # Membaca dataset dengan pemisah yang sesuai
         df = pd.read_csv(uploaded_file, sep=None, engine='python')
         
-        # Menampilkan beberapa baris pertama dataset
-        st.write("### 🔍 Data Awal:")
-        st.dataframe(df.head())
-        
-        # Menampilkan nama kolom
-        st.write("### 🏷️ Nama Kolom dalam Dataset:")
-        st.write(df.columns.tolist())
-        
         # Pastikan kolom yang diperlukan ada dalam dataset
         required_columns = {"status_rumah", "sarana_air_bersih", "jamban", "perilaku_merokok", "membersihkan_rumah"}
         if required_columns.issubset(df.columns):
             # Fungsi untuk menghitung jumlah dan persentase "Tidak Layak"
             def calculate_percentage(column, condition):
                 total = df.shape[0]
-                tidak_layak = df[df[column] == condition].shape[0]
+                tidak_layak = df[df[column].str.lower().str.strip() == condition.lower()].shape[0]
                 persentase = (tidak_layak / total * 100) if total > 0 else 0
                 return tidak_layak, persentase
             
