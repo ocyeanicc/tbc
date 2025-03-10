@@ -75,25 +75,7 @@ if uploaded_file is not None:
         else:
             st.error("⚠️ Kolom 'puskesmas' tidak ditemukan!")
 
-    # 3️⃣ Tren Kunjungan Pasien
-    elif option == "Tren Kunjungan Pasien":
-        st.title("📅 Tren Kunjungan Pasien")
-
-        if "tanggal" in df.columns:
-            df["tanggal"] = pd.to_datetime(df["tanggal"])
-            daily_visits = df.groupby(df["tanggal"].dt.date).size()
-
-            fig, ax = plt.subplots()
-            ax.plot(daily_visits.index, daily_visits.values, marker='o', linestyle='-')
-            ax.set_xlabel("Tanggal")
-            ax.set_ylabel("Jumlah Pasien")
-            ax.set_title("Tren Kunjungan Pasien")
-            plt.xticks(rotation=45)
-            st.pyplot(fig)
-        else:
-            st.error("⚠️ Kolom 'tanggal' tidak ditemukan!")
-
-    # 4️⃣ Pekerjaan Pasien
+    # 3️⃣ Pekerjaan Pasien
     elif option == "Pekerjaan Pasien":
         st.title("👨‍🔧 Distribusi Pekerjaan Pasien")
 
@@ -108,7 +90,7 @@ if uploaded_file is not None:
         else:
             st.error("⚠️ Kolom 'pekerjaan' tidak ditemukan!")
 
-    # 5️⃣ Gender Pasien
+    # 4️⃣ Gender Pasien
     elif option == "Gender Pasien":
         st.title("⚧️ Distribusi Gender Pasien")
 
@@ -123,7 +105,7 @@ if uploaded_file is not None:
         else:
             st.error("⚠️ Kolom 'gender' tidak ditemukan!")
 
-    # 6️⃣ Presentase Rumah Layak & Tidak Layak
+    # 5️⃣ Presentase Rumah Layak & Tidak Layak
     elif option == "Presentase Rumah Layak & Tidak Layak":
         st.title("🏠 Presentase Rumah Layak & Tidak Layak")
 
@@ -138,7 +120,7 @@ if uploaded_file is not None:
         else:
             st.error("⚠️ Kolom 'rumah_tidak_layak' tidak ditemukan!")
 
-    # 7️⃣ Presentase Sanitasi Layak & Tidak Layak
+    # 6️⃣ Presentase Sanitasi Layak & Tidak Layak
     elif option == "Presentase Sanitasi Layak & Tidak Layak":
         st.title("🚰 Presentase Sanitasi Layak & Tidak Layak")
 
@@ -153,7 +135,7 @@ if uploaded_file is not None:
         else:
             st.error("⚠️ Kolom 'sanitasi_tidak_layak' tidak ditemukan!")
 
-    # 8️⃣ Presentase Perilaku Baik & Tidak Baik
+    # 7️⃣ Presentase Perilaku Baik & Tidak Baik
     elif option == "Presentase Perilaku Baik & Tidak Baik":
         st.title("🧑‍⚕️ Presentase Perilaku Baik & Tidak Baik")
 
