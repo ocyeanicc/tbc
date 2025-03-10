@@ -6,7 +6,7 @@ import seaborn as sns
 # Fungsi untuk membaca file CSV dengan fleksibilitas tinggi
 def load_uploaded_file(uploaded_file):
     try:
-        df = pd.read_csv(uploaded_file)  # Baca CSV dengan format default
+        df = pd.read_csv(uploaded_file)  # Coba baca dengan format default
     except pd.errors.ParserError:
         uploaded_file.seek(0)
         try:
@@ -39,9 +39,9 @@ if uploaded_file is not None:
         "Tren Kunjungan Pasien",
         "Pekerjaan Pasien",
         "Gender Pasien",
-        "Sebaran Usia Pasien",
-        "Distribusi Geografis (Kecamatan)",
-        "Hubungan Faktor Risiko & Pasien",
+        "Presentase Rumah Layak & Tidak Layak",
+        "Presentase Sanitasi Layak & Tidak Layak",
+        "Presentase Perilaku Baik & Tidak Baik",
     ])
 
     # 1️⃣ Presentase Rumah, Sanitasi, dan Perilaku Tidak Layak
@@ -129,47 +129,47 @@ if uploaded_file is not None:
             ax.set_title("Distribusi Gender Pasien")
             st.pyplot(fig)
 
-    # 6️⃣ Sebaran Usia Pasien
-    elif option == "Sebaran Usia Pasien":
-        st.title("📊 Sebaran Usia Pasien")
+    # 6️⃣ Presentase Rumah Layak & Tidak Layak
+    elif option == "Presentase Rumah Layak & Tidak Layak":
+        st.title("🏠 Presentase Rumah Layak & Tidak Layak")
 
-        if "usia" not in df.columns:
-            st.error("⚠️ Kolom 'usia' tidak ditemukan dalam file CSV.")
+        if "rumah_tidak_layak" not in df.columns:
+            st.error("⚠️ Kolom 'rumah_tidak_layak' tidak ditemukan.")
         else:
-            fig, ax = plt.subplots(figsize=(8, 5))
-            sns.histplot(df["usia"], bins=20, kde=True, ax=ax, color="purple")
-            ax.set_xlabel("Usia")
-            ax.set_ylabel("Frekuensi")
-            ax.set_title("Sebaran Usia Pasien")
+            labels = ["Layak", "Tidak Layak"]
+            values = [1 - df["rumah_tidak_layak"].mean(), df["rumah_tidak_layak"].mean()]
+
+            fig, ax = plt.subplots()
+            ax.pie(values, labels=labels, autopct='%1.1f%%', colors=['#2ECC71', '#E74C3C'], startangle=140)
+            ax.set_title("Presentase Rumah Layak vs Tidak Layak")
             st.pyplot(fig)
 
-    # 7️⃣ Distribusi Geografis (Kecamatan)
-    elif option == "Distribusi Geografis (Kecamatan)":
-        st.title("🗺️ Distribusi Pasien per Kecamatan")
+    # 7️⃣ Presentase Sanitasi Layak & Tidak Layak
+    elif option == "Presentase Sanitasi Layak & Tidak Layak":
+        st.title("🚰 Presentase Sanitasi Layak & Tidak Layak")
 
-        if "kecamatan" not in df.columns:
-            st.error("⚠️ Kolom 'kecamatan' tidak ditemukan dalam file CSV.")
+        if "sanitasi_tidak_layak" not in df.columns:
+            st.error("⚠️ Kolom 'sanitasi_tidak_layak' tidak ditemukan.")
         else:
-            kecamatan_counts = df["kecamatan"].value_counts()
-            
-            fig, ax = plt.subplots(figsize=(10, 5))
-            sns.barplot(x=kecamatan_counts.values, y=kecamatan_counts.index, ax=ax, palette="muted")
-            ax.set_xlabel("Jumlah Pasien")
-            ax.set_ylabel("Kecamatan")
-            ax.set_title("Distribusi Pasien per Kecamatan")
+            labels = ["Layak", "Tidak Layak"]
+            values = [1 - df["sanitasi_tidak_layak"].mean(), df["sanitasi_tidak_layak"].mean()]
+
+            fig, ax = plt.subplots()
+            ax.pie(values, labels=labels, autopct='%1.1f%%', colors=['#2ECC71', '#E74C3C'], startangle=140)
+            ax.set_title("Presentase Sanitasi Layak vs Tidak Layak")
             st.pyplot(fig)
 
-    # 8️⃣ Hubungan Faktor Risiko & Pasien
-    elif option == "Hubungan Faktor Risiko & Pasien":
-        st.title("🔍 Korelasi Faktor Risiko & Pasien")
+    # 8️⃣ Presentase Perilaku Baik & Tidak Baik
+    elif option == "Presentase Perilaku Baik & Tidak Baik":
+        st.title("🧑‍⚕️ Presentase Perilaku Baik & Tidak Baik")
 
-        numeric_df = df.select_dtypes(include=['number'])
-        corr_matrix = numeric_df.corr()
+        if "perilaku_tidak_baik" not in df.columns:
+            st.error("⚠️ Kolom 'perilaku_tidak_baik' tidak ditemukan dalam file CSV.")
+        else:
+            labels = ["Baik", "Tidak Baik"]
+            values = [1 - df["perilaku_tidak_baik"].mean(), df["perilaku_tidak_baik"].mean()]
 
-        fig, ax = plt.subplots(figsize=(10, 8))
-        sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", fmt=".2f", ax=ax)
-        ax.set_title("Korelasi Antar Faktor")
-        st.pyplot(fig)
-
-else:
-    st.warning("⚠️ Silakan unggah file CSV yang valid.")
+            fig, ax = plt.subplots()
+            ax.pie(values, labels=labels, autopct='%1.1f%%', colors=['#2ECC71', '#E74C3C'], startangle=140)
+            ax.set_title("Presentase Perilaku Baik vs Tidak Baik")
+            st.pyplot(fig)
