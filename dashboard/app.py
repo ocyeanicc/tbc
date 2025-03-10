@@ -13,6 +13,7 @@ df = load_data()
 
 # Sidebar Navigasi
 st.sidebar.title("Dashboard Visualisasi Data")
+st.sidebar.write("Pilihan yang tersedia:", option)
 option = st.sidebar.selectbox("Pilih Visualisasi", [
     "Presentase Rumah, Sanitasi, dan Perilaku Tidak Layak",
     "Jumlah Pasien per Puskesmas",
@@ -35,6 +36,7 @@ if option == "Presentase Rumah, Sanitasi, dan Perilaku Tidak Layak":
     ax.pie(values, labels=labels, autopct='%1.1f%%', colors=['#E74C3C', '#3498DB', '#FF7F0E'], startangle=140)
     ax.set_title("Distribusi Faktor Tidak Layak")
     st.pyplot(fig)
+    st.write("Menampilkan: Presentase Rumah, Sanitasi, dan Perilaku Tidak Layak")
 
 # 2️⃣ Jumlah Pasien per Puskesmas
 elif option == "Jumlah Pasien per Puskesmas":
@@ -47,6 +49,7 @@ elif option == "Jumlah Pasien per Puskesmas":
     ax.set_ylabel("Puskesmas")
     ax.set_title("Jumlah Pasien per Puskesmas")
     st.pyplot(fig)
+    st.write("Menampilkan: Jumlah Pasien per Puskesmas")
 
 # 3️⃣ Tren Kunjungan Pasien
 elif option == "Tren Kunjungan Pasien":
@@ -61,6 +64,7 @@ elif option == "Tren Kunjungan Pasien":
     ax.set_title("Tren Kunjungan Pasien")
     plt.xticks(rotation=45)
     st.pyplot(fig)
+    st.write("Menampilkan: Tren Kunjungan Pasien")
 
 # 4️⃣ Pekerjaan Pasien
 elif option == "Pekerjaan Pasien":
@@ -73,6 +77,7 @@ elif option == "Pekerjaan Pasien":
     ax.set_ylabel("Pekerjaan")
     ax.set_title("Distribusi Pekerjaan Pasien")
     st.pyplot(fig)
+    st.write("Menampilkan: Pekerjaan Pasien")
 
 # 5️⃣ Gender Pasien
 elif option == "Gender Pasien":
@@ -85,6 +90,7 @@ elif option == "Gender Pasien":
     ax.set_ylabel("Gender")
     ax.set_title("Distribusi Gender Pasien")
     st.pyplot(fig)
+    st.write("Menampilkan: Gender Pasien")
 
 # 6️⃣ Presentase Rumah Layak & Tidak Layak
 elif option == "Presentase Rumah Layak & Tidak Layak":
@@ -97,6 +103,7 @@ elif option == "Presentase Rumah Layak & Tidak Layak":
     ax.pie(sizes, labels=labels, autopct='%1.1f%%', colors=['#4CAF50', '#E74C3C'], startangle=140, explode=(0, 0.1))
     ax.set_title("Persentase Rumah Layak dan Tidak Layak")
     st.pyplot(fig)
+    st.write("Menampilkan: Presentase Rumah Layak & Tidak Layak")
 
 # 7️⃣ Presentase Sanitasi Layak & Tidak Layak
 elif option == "Presentase Sanitasi Layak & Tidak Layak":
@@ -109,6 +116,7 @@ elif option == "Presentase Sanitasi Layak & Tidak Layak":
     ax.pie(sizes, labels=labels, autopct='%1.1f%%', colors=['#3498DB', '#E74C3C'], startangle=140, explode=(0, 0.1))
     ax.set_title("Persentase Sanitasi Layak dan Tidak Layak")
     st.pyplot(fig)
+    st.write("Menampilkan: Presentase Sanitasi Layak & Tidak Layak")
 
 # 8️⃣ Presentase Perilaku Baik & Tidak Baik
 elif option == "Presentase Perilaku Baik & Tidak Baik":
@@ -121,3 +129,4 @@ elif option == "Presentase Perilaku Baik & Tidak Baik":
     ax.pie(sizes, labels=labels, autopct='%1.1f%%', colors=['#1F77B4', '#FF7F0E'], startangle=140, explode=(0, 0.1))
     ax.set_title("Persentase Perilaku Baik dan Tidak Baik")
     st.pyplot(fig)
+    st.write("Menampilkan: Presentase Perilaku Baik & Tidak Baik")
