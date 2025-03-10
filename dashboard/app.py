@@ -22,12 +22,12 @@ uploaded_file = st.sidebar.file_uploader("📂 Unggah file CSV", type=["csv"])
 
 if uploaded_file is not None:
     df = load_uploaded_file(uploaded_file)
-    
+
     # Normalisasi nama kolom agar tidak error (menghapus spasi & lowercase)
     df.columns = df.columns.str.strip().str.lower()
 
     st.sidebar.success("✅ File CSV berhasil diunggah!")
-    
+
     # Menampilkan daftar nama kolom agar bisa dicek
     st.sidebar.write("🔍 **Kolom dalam file:**")
     st.sidebar.write(df.columns.tolist())
@@ -36,6 +36,7 @@ if uploaded_file is not None:
     option = st.sidebar.selectbox("📊 Pilih Visualisasi", [
         "Presentase Rumah, Sanitasi, dan Perilaku Tidak Layak",
         "Jumlah Pasien per Puskesmas",
+        "Tren Kunjungan Pasien",
         "Pekerjaan Pasien",
         "Gender Pasien",
         "Presentase Rumah Layak & Tidak Layak",
@@ -46,106 +47,117 @@ if uploaded_file is not None:
     # 1️⃣ Presentase Rumah, Sanitasi, dan Perilaku Tidak Layak
     if option == "Presentase Rumah, Sanitasi, dan Perilaku Tidak Layak":
         st.title("🏡 Presentase Rumah, Sanitasi, dan Perilaku Tidak Layak")
-
-        required_columns = ["rumah_tidak_layak", "sanitasi_tidak_layak", "perilaku_tidak_baik"]
-        missing_columns = [col for col in required_columns if col not in df.columns]
-
-        if missing_columns:
-            st.error(f"⚠️ Kolom tidak ditemukan: {missing_columns}")
-        else:
+        
+        # Sesuaikan dengan dataset
+        if all(col in df.columns for col in ["rumah_tidak_layak", "sanitasi_tidak_layak", "perilaku_tidak_baik"]):
             labels = ["Rumah Tidak Layak", "Sanitasi Tidak Layak", "Perilaku Tidak Baik"]
             values = [df["rumah_tidak_layak"].mean(), df["sanitasi_tidak_layak"].mean(), df["perilaku_tidak_baik"].mean()]
-            
+
             fig, ax = plt.subplots()
             ax.pie(values, labels=labels, autopct='%1.1f%%', colors=['#E74C3C', '#3498DB', '#FF7F0E'], startangle=140)
             ax.set_title("Distribusi Faktor Tidak Layak")
             st.pyplot(fig)
+        else:
+            st.error("⚠️ Kolom yang dibutuhkan tidak ditemukan dalam dataset!")
 
     # 2️⃣ Jumlah Pasien per Puskesmas
     elif option == "Jumlah Pasien per Puskesmas":
         st.title("🏥 Jumlah Pasien per Puskesmas")
 
-        if "puskesmas" not in df.columns:
-            st.error("⚠️ Kolom 'puskesmas' tidak ditemukan dalam file CSV.")
-        else:
-            puskesmas_counts = df['puskesmas'].value_counts()
-            
+        if "puskesmas" in df.columns:
+            puskesmas_counts = df["puskesmas"].value_counts()
             fig, ax = plt.subplots(figsize=(10, 5))
             sns.barplot(x=puskesmas_counts.values, y=puskesmas_counts.index, ax=ax, palette="viridis")
             ax.set_xlabel("Jumlah Pasien")
             ax.set_ylabel("Puskesmas")
             ax.set_title("Jumlah Pasien per Puskesmas")
             st.pyplot(fig)
-
-    # 3️⃣ Pekerjaan Pasien
-    elif option == "Pekerjaan Pasien":
-        st.title("💼 Distribusi Pekerjaan Pasien")
-
-        if "pekerjaan" not in df.columns:
-            st.error("⚠️ Kolom 'pekerjaan' tidak ditemukan dalam file CSV.")
         else:
-            pekerjaan_counts = df['pekerjaan'].value_counts()
-            
+            st.error("⚠️ Kolom 'puskesmas' tidak ditemukan!")
+
+    # 3️⃣ Tren Kunjungan Pasien
+    elif option == "Tren Kunjungan Pasien":
+        st.title("📅 Tren Kunjungan Pasien")
+
+        if "tanggal" in df.columns:
+            df["tanggal"] = pd.to_datetime(df["tanggal"])
+            daily_visits = df.groupby(df["tanggal"].dt.date).size()
+
+            fig, ax = plt.subplots()
+            ax.plot(daily_visits.index, daily_visits.values, marker='o', linestyle='-')
+            ax.set_xlabel("Tanggal")
+            ax.set_ylabel("Jumlah Pasien")
+            ax.set_title("Tren Kunjungan Pasien")
+            plt.xticks(rotation=45)
+            st.pyplot(fig)
+        else:
+            st.error("⚠️ Kolom 'tanggal' tidak ditemukan!")
+
+    # 4️⃣ Pekerjaan Pasien
+    elif option == "Pekerjaan Pasien":
+        st.title("👨‍🔧 Distribusi Pekerjaan Pasien")
+
+        if "pekerjaan" in df.columns:
+            pekerjaan_counts = df["pekerjaan"].value_counts()
             fig, ax = plt.subplots(figsize=(10, 5))
             sns.barplot(y=pekerjaan_counts.index, x=pekerjaan_counts.values, ax=ax, palette="coolwarm")
             ax.set_xlabel("Jumlah Pasien")
             ax.set_ylabel("Pekerjaan")
             ax.set_title("Distribusi Pekerjaan Pasien")
             st.pyplot(fig)
-
-    # 4️⃣ Gender Pasien
-    elif option == "Gender Pasien":
-        st.title("🚻 Distribusi Gender Pasien")
-
-        if "gender" not in df.columns:
-            st.error("⚠️ Kolom 'gender' tidak ditemukan dalam file CSV.")
         else:
-            gender_counts = df['gender'].value_counts()
-            
+            st.error("⚠️ Kolom 'pekerjaan' tidak ditemukan!")
+
+    # 5️⃣ Gender Pasien
+    elif option == "Gender Pasien":
+        st.title("⚧️ Distribusi Gender Pasien")
+
+        if "gender" in df.columns:
+            gender_counts = df["gender"].value_counts()
             fig, ax = plt.subplots(figsize=(7, 5))
             sns.barplot(y=gender_counts.index, x=gender_counts.values, ax=ax, palette="pastel")
             ax.set_xlabel("Jumlah Pasien")
             ax.set_ylabel("Gender")
             ax.set_title("Distribusi Gender Pasien")
             st.pyplot(fig)
+        else:
+            st.error("⚠️ Kolom 'gender' tidak ditemukan!")
 
-    # 5️⃣ Presentase Rumah Layak & Tidak Layak
+    # 6️⃣ Presentase Rumah Layak & Tidak Layak
     elif option == "Presentase Rumah Layak & Tidak Layak":
         st.title("🏠 Presentase Rumah Layak & Tidak Layak")
 
-        if "rumah_tidak_layak" not in df.columns:
-            st.error("⚠️ Kolom 'rumah_tidak_layak' tidak ditemukan.")
-        else:
+        if "rumah_tidak_layak" in df.columns:
             labels = ["Layak", "Tidak Layak"]
-            values = [1 - df["rumah_tidak_layak"].mean(), df["rumah_tidak_layak"].mean()]
+            sizes = [1 - df["rumah_tidak_layak"].mean(), df["rumah_tidak_layak"].mean()]
 
             fig, ax = plt.subplots()
-            ax.pie(values, labels=labels, autopct='%1.1f%%', colors=['#2ECC71', '#E74C3C'], startangle=140)
-            ax.set_title("Presentase Rumah Layak vs Tidak Layak")
+            ax.pie(sizes, labels=labels, autopct='%1.1f%%', colors=['#4CAF50', '#E74C3C'], startangle=140)
+            ax.set_title("Presentase Rumah Layak dan Tidak Layak")
             st.pyplot(fig)
+        else:
+            st.error("⚠️ Kolom 'rumah_tidak_layak' tidak ditemukan!")
 
-    # 6️⃣ Presentase Sanitasi Layak & Tidak Layak
+    # 7️⃣ Presentase Sanitasi Layak & Tidak Layak
     elif option == "Presentase Sanitasi Layak & Tidak Layak":
         st.title("🚰 Presentase Sanitasi Layak & Tidak Layak")
 
-        if "sanitasi_tidak_layak" not in df.columns:
-            st.error("⚠️ Kolom 'sanitasi_tidak_layak' tidak ditemukan.")
-        else:
+        if "sanitasi_tidak_layak" in df.columns:
             labels = ["Layak", "Tidak Layak"]
-            values = [1 - df["sanitasi_tidak_layak"].mean(), df["sanitasi_tidak_layak"].mean()]
+            sizes = [1 - df["sanitasi_tidak_layak"].mean(), df["sanitasi_tidak_layak"].mean()]
 
             fig, ax = plt.subplots()
-            ax.pie(values, labels=labels, autopct='%1.1f%%', colors=['#2ECC71', '#E74C3C'], startangle=140)
-            ax.set_title("Presentase Sanitasi Layak vs Tidak Layak")
+            ax.pie(sizes, labels=labels, autopct='%1.1f%%', colors=['#3498DB', '#E74C3C'], startangle=140)
+            ax.set_title("Presentase Sanitasi Layak dan Tidak Layak")
             st.pyplot(fig)
+        else:
+            st.error("⚠️ Kolom 'sanitasi_tidak_layak' tidak ditemukan!")
 
-    # 7️⃣ Presentase Perilaku Baik & Tidak Baik
+    # 8️⃣ Presentase Perilaku Baik & Tidak Baik
     elif option == "Presentase Perilaku Baik & Tidak Baik":
         st.title("🧑‍⚕️ Presentase Perilaku Baik & Tidak Baik")
 
-        if "perilaku_tidak_baik" not in df.columns:
-            st.error("⚠️ Kolom 'perilaku_tidak_baik' tidak ditemukan dalam file CSV.")
-        else:
+        if "perilaku_tidak_baik" in df.columns:
             labels = ["Baik", "Tidak Baik"]
             values = [1 - df["perilaku_tidak_baik"].mean(), df["perilaku_tidak_baik"].mean()]
 
@@ -153,3 +165,5 @@ if uploaded_file is not None:
             ax.pie(values, labels=labels, autopct='%1.1f%%', colors=['#2ECC71', '#E74C3C'], startangle=140)
             ax.set_title("Presentase Perilaku Baik vs Tidak Baik")
             st.pyplot(fig)
+        else:
+            st.error("⚠️ Kolom 'perilaku_tidak_baik' tidak ditemukan!")
