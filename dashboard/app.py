@@ -27,31 +27,41 @@ if uploaded_file is not None:
 
         # Pastikan kolom yang diperlukan ada dalam dataset
         required_columns = ["ventilasi", "sarana_air_bersih", "perilaku_merokok", "dinding"]
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            st.error(f"Kolom yang hilang: {', '.join(missing_columns)}. Pastikan CSV memiliki kolom ini.")
-            st.stop()
+        for col in required_columns:
+            if col not in df.columns:
+                st.error(f"Kolom '{col}' tidak ditemukan dalam dataset. Pastikan CSV memiliki kolom ini.")
+                st.stop()
 
-        # Konversi kolom ke tipe numerik
+        # Konversi kolom ke tipe numerik untuk menghindari error dalam perhitungan
         for col in ["ventilasi", "sarana_air_bersih", "perilaku_merokok"]:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
-        # Menentukan kategori berdasarkan kondisi
-        df["kategori"] = df.apply(
-            lambda row: "Layak" if row["ventilasi"] > 2 and row["dinding"].strip().lower() == "permanen" else "Tidak Layak",
-            axis=1
-        )
-
         # Menambahkan kolom 'Skor Kelayakan'
-        df["skor_kelayakan"] = df[["ventilasi", "sarana_air_bersih", "perilaku_merokok"]].mean(axis=1)
+        df["Skor Kelayakan"] = df[["ventilasi", "sarana_air_bersih", "perilaku_merokok"]].sum(axis=1) / 3
+
+        # Menentukan threshold kelayakan
+        threshold = 70
+
+        # Fungsi untuk melabeli berdasarkan skor kelayakan
+        def label_kelayakan(skor):
+            return "Layak" if skor >= threshold else "Tidak Layak"
+
+        # Menambahkan kolom label ke masing-masing DataFrame
+        df["Label"] = df["Skor Kelayakan"].apply(label_kelayakan)
 
         st.write("### ✅ Data dengan Kategori dan Skor Kelayakan")
-        st.dataframe(df[["kategori", "skor_kelayakan"]].head(10))
+        st.dataframe(df[["Label", "Skor Kelayakan"]].head(10))
+
+        # Menghitung persentase kategori tidak layak
+        total_data = len(df)
+        persentase_tidak_layak_rumah = (df[df["Label"] == "Tidak Layak"].shape[0] / total_data) * 100
+        persentase_tidak_layak_sanitasi = (df[df["sarana_air_bersih"] == 0].shape[0] / total_data) * 100
+        persentase_tidak_baik_perilaku = (df[df["perilaku_merokok"] == 1].shape[0] / total_data) * 100
 
         # Pilihan Visualisasi
         st.sidebar.header("📊 Pilih Visualisasi")
         visual_option = st.sidebar.selectbox("Pilih Grafik", [
-            "Distribusi Kategori Rumah",
+            "Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak",
             "Jumlah Pasien per Puskesmas",
             "Tren Kunjungan Pasien",
             "Gender vs Jumlah Pasien",
@@ -59,46 +69,38 @@ if uploaded_file is not None:
         ])
         
         # Visualisasi Berdasarkan Pilihan
-        if visual_option == "Distribusi Kategori Rumah":
-            kategori_counts = df["kategori"].value_counts()
-            fig, ax = plt.subplots()
-            ax.bar(kategori_counts.index, kategori_counts.values, color=['red', 'blue'])
-            ax.set_xlabel("Kategori")
-            ax.set_ylabel("Jumlah")
-            ax.set_title("Distribusi Kategori Rumah Layak dan Tidak Layak")
-            st.pyplot(fig)
+        if visual_option == "Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak":
+            kategori = ["Rumah Tidak Layak", "Sanitasi Tidak Layak", "Perilaku Tidak Baik"]
+            persentase = [persentase_tidak_layak_rumah, persentase_tidak_layak_sanitasi, persentase_tidak_baik_perilaku]
 
-        elif visual_option == "Jumlah Pasien per Puskesmas" and "puskesmas" in df.columns:
-            puskesmas_counts = df["puskesmas"].value_counts()
-            fig, ax = plt.subplots(figsize=(10, 5))
-            sns.barplot(x=puskesmas_counts.values, y=puskesmas_counts.index, ax=ax)
-            ax.set_title("Jumlah Pasien per Puskesmas")
-            st.pyplot(fig)
+            sorted_indices = sorted(range(len(persentase)), key=lambda i: persentase[i], reverse=True)
+            kategori = [kategori[i] for i in sorted_indices]
+            persentase = [persentase[i] for i in sorted_indices]
 
-        elif visual_option == "Tren Kunjungan Pasien" and "date_start" in df.columns:
-            df["date_start"] = pd.to_datetime(df["date_start"], errors="coerce")
-            date_counts = df["date_start"].dt.to_period("M").value_counts().sort_index()
-            fig, ax = plt.subplots()
-            date_counts.plot(kind='line', marker="o", ax=ax)
-            ax.set_title("Tren Kunjungan Pasien")
-            ax.set_xlabel("Bulan")
-            ax.set_ylabel("Jumlah Pasien")
-            st.pyplot(fig)
+            plt.figure(figsize=(8, 5))
+            plt.bar(kategori, persentase, color=['red', 'orange', 'blue'])
+            plt.xlabel("Kategori")
+            plt.ylabel("Persentase (%)")
+            plt.title("Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak")
+            plt.ylim(0, 100)
+            plt.grid(axis="y", linestyle="--", alpha=0.7)
 
-        elif visual_option == "Gender vs Jumlah Pasien" and "gender" in df.columns:
-            gender_counts = df["gender"].value_counts()
-            fig, ax = plt.subplots()
-            sns.barplot(x=gender_counts.index, y=gender_counts.values, ax=ax)
-            ax.set_title("Gender vs Jumlah Pasien")
-            st.pyplot(fig)
+            for i, v in enumerate(persentase):
+                plt.text(i, v + 2, f"{v:.2f}%", ha="center", fontsize=10)
+            
+            st.pyplot(plt)
 
-        elif visual_option == "Pasien vs Pekerjaan" and "pekerjaan" in df.columns:
-            pekerjaan_counts = df["pekerjaan"].value_counts()
-            fig, ax = plt.subplots()
-            sns.barplot(x=pekerjaan_counts.values, y=pekerjaan_counts.index, ax=ax)
-            ax.set_title("Pekerjaan vs Jumlah Pasien")
-            st.pyplot(fig)
-        
+        elif visual_option == "Jumlah Pasien per Puskesmas":
+            if "puskesmas" in df.columns and "pasien" in df.columns:
+                puskesmas_counts = df.groupby("puskesmas")["pasien"].count().reset_index()
+                puskesmas_counts.columns = ["puskesmas", "jumlah_pasien"]
+                fig, ax = plt.subplots(figsize=(10, 5))
+                sns.barplot(data=puskesmas_counts, x="jumlah_pasien", y="puskesmas", ax=ax)
+                ax.set_title("Jumlah Pasien per Puskesmas")
+                st.pyplot(fig)
+            else:
+                st.warning("Kolom 'puskesmas' atau 'pasien' tidak ditemukan dalam dataset.")
+
     except Exception as e:
         st.error(f"Terjadi kesalahan saat membaca file: {e}")
 else:
