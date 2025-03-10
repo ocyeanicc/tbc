@@ -36,18 +36,25 @@ if uploaded_file is not None:
         for col in ["ventilasi", "sarana_air_bersih", "perilaku_merokok"]:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
-        # Menambahkan kolom 'Kategori' berdasarkan kondisi tertentu
-        df["Kategori"] = df.apply(lambda row: "Layak" if row["ventilasi"] > 2 and row["dinding"] == "permanen" else "Tidak Layak", axis=1)
-
         # Menambahkan kolom 'Skor Kelayakan'
         df["Skor Kelayakan"] = df[["ventilasi", "sarana_air_bersih", "perilaku_merokok"]].sum(axis=1) / 3
 
+        # Menentukan threshold kelayakan
+        threshold = 70
+
+        # Fungsi untuk melabeli berdasarkan skor kelayakan
+        def label_kelayakan(skor):
+            return "Layak" if skor >= threshold else "Tidak Layak"
+
+        # Menambahkan kolom label ke masing-masing DataFrame
+        df["Label"] = df["Skor Kelayakan"].apply(label_kelayakan)
+
         st.write("### ✅ Data dengan Kategori dan Skor Kelayakan")
-        st.dataframe(df[["Kategori", "Skor Kelayakan"]].head(10))
+        st.dataframe(df[["Label", "Skor Kelayakan"]].head(10))
 
         # Menghitung persentase kategori tidak layak
         total_data = len(df)
-        persentase_tidak_layak_rumah = (df[df["Kategori"] == "Tidak Layak"].shape[0] / total_data) * 100
+        persentase_tidak_layak_rumah = (df[df["Label"] == "Tidak Layak"].shape[0] / total_data) * 100
         persentase_tidak_layak_sanitasi = (df[df["sarana_air_bersih"] == 0].shape[0] / total_data) * 100
         persentase_tidak_baik_perilaku = (df[df["perilaku_merokok"] == 1].shape[0] / total_data) * 100
 
