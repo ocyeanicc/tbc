@@ -3,26 +3,39 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Load Data dengan cache terbaru
-@st.cache_data
-def load_data():
+# Fungsi untuk membaca file CSV dengan berbagai kemungkinan format
+def load_uploaded_file(uploaded_file):
     try:
-        df = pd.read_csv("data.csv")  # Pastikan file tersedia di direktori yang benar
+        df = pd.read_csv(uploaded_file)  # Coba baca file secara default
         return df
-    except FileNotFoundError:
-        st.error("❌ File 'data.csv' tidak ditemukan. Pastikan file ada atau unggah file baru.")
-        return None
+    except pd.errors.ParserError:
+        try:
+            uploaded_file.seek(0)  # Reset posisi file sebelum membaca ulang
+            df = pd.read_csv(uploaded_file, delimiter=";")  # Coba delimiter titik koma
+            return df
+        except pd.errors.ParserError:
+            try:
+                uploaded_file.seek(0)
+                df = pd.read_csv(uploaded_file, encoding="ISO-8859-1")  # Coba encoding lain
+                return df
+            except Exception as e:
+                st.error(f"❌ Gagal membaca file CSV: {e}")
+                return None
 
-# Sidebar untuk upload file (opsional)
+# Sidebar untuk upload file
 st.sidebar.title("Dashboard Visualisasi Data")
 uploaded_file = st.sidebar.file_uploader("Unggah file CSV", type=["csv"])
 
 if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
+    df = load_uploaded_file(uploaded_file)
 else:
-    df = load_data()
+    df = None
 
-if df is not None:  # Pastikan data ada sebelum menjalankan visualisasi
+# Pastikan file berhasil dibaca sebelum lanjut ke visualisasi
+if df is not None:
+    st.sidebar.success("✅ File CSV berhasil diunggah!")
+    
+    # Pilihan visualisasi
     option = st.sidebar.selectbox("Pilih Visualisasi", [
         "Presentase Rumah, Sanitasi, dan Perilaku Tidak Layak",
         "Jumlah Pasien per Puskesmas",
@@ -33,14 +46,18 @@ if df is not None:  # Pastikan data ada sebelum menjalankan visualisasi
         "Presentase Sanitasi Layak & Tidak Layak",
         "Presentase Perilaku Baik & Tidak Baik"
     ])
-
+    
     # 1️⃣ Presentase Rumah, Sanitasi, dan Perilaku Tidak Layak
     if option == "Presentase Rumah, Sanitasi, dan Perilaku Tidak Layak":
         st.title("Presentase Rumah, Sanitasi, dan Perilaku Tidak Layak")
-
+        
         labels = ["Rumah Tidak Layak", "Sanitasi Tidak Layak", "Perilaku Tidak Baik"]
-        values = [df['rumah_tidak_layak'].mean(), df['sanitasi_tidak_layak'].mean(), df['perilaku_tidak_baik'].mean()]
-
+        values = [
+            df['rumah_tidak_layak'].mean(), 
+            df['sanitasi_tidak_layak'].mean(), 
+            df['perilaku_tidak_baik'].mean()
+        ]
+        
         fig, ax = plt.subplots()
         ax.pie(values, labels=labels, autopct='%1.1f%%', colors=['#E74C3C', '#3498DB', '#FF7F0E'], startangle=140)
         ax.set_title("Distribusi Faktor Tidak Layak")
@@ -50,7 +67,7 @@ if df is not None:  # Pastikan data ada sebelum menjalankan visualisasi
     elif option == "Jumlah Pasien per Puskesmas":
         st.title("Jumlah Pasien per Puskesmas")
         puskesmas_counts = df['puskesmas'].value_counts()
-
+        
         fig, ax = plt.subplots(figsize=(10, 5))
         sns.barplot(x=puskesmas_counts.values, y=puskesmas_counts.index, ax=ax, palette="viridis")
         ax.set_xlabel("Jumlah Pasien")
@@ -63,7 +80,7 @@ if df is not None:  # Pastikan data ada sebelum menjalankan visualisasi
         st.title("Tren Kunjungan Pasien")
         df['tanggal'] = pd.to_datetime(df['tanggal'])
         daily_visits = df.groupby(df['tanggal'].dt.date)['pasien'].count()
-
+        
         fig, ax = plt.subplots()
         ax.plot(daily_visits.index, daily_visits.values, marker='o', linestyle='-')
         ax.set_xlabel("Tanggal")
@@ -76,7 +93,7 @@ if df is not None:  # Pastikan data ada sebelum menjalankan visualisasi
     elif option == "Pekerjaan Pasien":
         st.title("Distribusi Pekerjaan Pasien")
         pekerjaan_counts = df['pekerjaan'].value_counts()
-
+        
         fig, ax = plt.subplots(figsize=(10, 5))
         sns.barplot(y=pekerjaan_counts.index, x=pekerjaan_counts.values, ax=ax, palette="coolwarm")
         ax.set_xlabel("Jumlah Pasien")
@@ -88,7 +105,7 @@ if df is not None:  # Pastikan data ada sebelum menjalankan visualisasi
     elif option == "Gender Pasien":
         st.title("Distribusi Gender Pasien")
         gender_counts = df['gender'].value_counts()
-
+        
         fig, ax = plt.subplots(figsize=(7, 5))
         sns.barplot(y=gender_counts.index, x=gender_counts.values, ax=ax, palette="pastel")
         ax.set_xlabel("Jumlah Pasien")
@@ -99,10 +116,9 @@ if df is not None:  # Pastikan data ada sebelum menjalankan visualisasi
     # 6️⃣ Presentase Rumah Layak & Tidak Layak
     elif option == "Presentase Rumah Layak & Tidak Layak":
         st.title("Presentase Rumah Layak & Tidak Layak")
-
         labels = ["Layak", "Tidak Layak"]
         sizes = [df['rumah_layak'].mean(), df['rumah_tidak_layak'].mean()]
-
+        
         fig, ax = plt.subplots()
         ax.pie(sizes, labels=labels, autopct='%1.1f%%', colors=['#4CAF50', '#E74C3C'], startangle=140, explode=(0, 0.1))
         ax.set_title("Persentase Rumah Layak dan Tidak Layak")
@@ -111,10 +127,9 @@ if df is not None:  # Pastikan data ada sebelum menjalankan visualisasi
     # 7️⃣ Presentase Sanitasi Layak & Tidak Layak
     elif option == "Presentase Sanitasi Layak & Tidak Layak":
         st.title("Presentase Sanitasi Layak & Tidak Layak")
-
         labels = ["Layak", "Tidak Layak"]
         sizes = [df['sanitasi_layak'].mean(), df['sanitasi_tidak_layak'].mean()]
-
+        
         fig, ax = plt.subplots()
         ax.pie(sizes, labels=labels, autopct='%1.1f%%', colors=['#3498DB', '#E74C3C'], startangle=140, explode=(0, 0.1))
         ax.set_title("Persentase Sanitasi Layak dan Tidak Layak")
@@ -123,14 +138,13 @@ if df is not None:  # Pastikan data ada sebelum menjalankan visualisasi
     # 8️⃣ Presentase Perilaku Baik & Tidak Baik
     elif option == "Presentase Perilaku Baik & Tidak Baik":
         st.title("Presentase Perilaku Baik & Tidak Baik")
-
         labels = ["Baik", "Tidak Baik"]
         sizes = [df['perilaku_baik'].mean(), df['perilaku_tidak_baik'].mean()]
-
+        
         fig, ax = plt.subplots()
         ax.pie(sizes, labels=labels, autopct='%1.1f%%', colors=['#1F77B4', '#FF7F0E'], startangle=140, explode=(0, 0.1))
         ax.set_title("Persentase Perilaku Baik dan Tidak Baik")
         st.pyplot(fig)
 
 else:
-    st.warning("⚠️ Data tidak tersedia. Silakan unggah file CSV atau pastikan 'data.csv' ada di direktori yang benar.")
+    st.warning("⚠️ Silakan unggah file CSV yang valid.")
