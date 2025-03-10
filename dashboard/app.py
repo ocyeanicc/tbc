@@ -36,7 +36,6 @@ if uploaded_file is not None:
     option = st.sidebar.selectbox("📊 Pilih Visualisasi", [
         "Presentase Rumah, Sanitasi, dan Perilaku Tidak Layak",
         "Jumlah Pasien per Puskesmas",
-        "Tren Kunjungan Pasien",
         "Pekerjaan Pasien",
         "Gender Pasien",
         "Presentase Rumah Layak & Tidak Layak",
@@ -78,26 +77,7 @@ if uploaded_file is not None:
             ax.set_title("Jumlah Pasien per Puskesmas")
             st.pyplot(fig)
 
-    # 3️⃣ Tren Kunjungan Pasien
-    elif option == "Tren Kunjungan Pasien":
-        st.title("📅 Tren Kunjungan Pasien")
-
-        if "tanggal" not in df.columns:
-            st.error("⚠️ Kolom 'tanggal' tidak ditemukan dalam file CSV.")
-        else:
-            df['tanggal'] = pd.to_datetime(df['tanggal'], errors='coerce')
-            df = df.dropna(subset=['tanggal'])
-            daily_visits = df.groupby(df['tanggal'].dt.date).size()
-            
-            fig, ax = plt.subplots()
-            ax.plot(daily_visits.index, daily_visits.values, marker='o', linestyle='-')
-            ax.set_xlabel("Tanggal")
-            ax.set_ylabel("Jumlah Pasien")
-            ax.set_title("Tren Kunjungan Pasien")
-            plt.xticks(rotation=45)
-            st.pyplot(fig)
-
-    # 4️⃣ Pekerjaan Pasien
+    # 3️⃣ Pekerjaan Pasien
     elif option == "Pekerjaan Pasien":
         st.title("💼 Distribusi Pekerjaan Pasien")
 
@@ -113,7 +93,7 @@ if uploaded_file is not None:
             ax.set_title("Distribusi Pekerjaan Pasien")
             st.pyplot(fig)
 
-    # 5️⃣ Gender Pasien
+    # 4️⃣ Gender Pasien
     elif option == "Gender Pasien":
         st.title("🚻 Distribusi Gender Pasien")
 
@@ -129,7 +109,7 @@ if uploaded_file is not None:
             ax.set_title("Distribusi Gender Pasien")
             st.pyplot(fig)
 
-    # 6️⃣ Presentase Rumah Layak & Tidak Layak
+    # 5️⃣ Presentase Rumah Layak & Tidak Layak
     elif option == "Presentase Rumah Layak & Tidak Layak":
         st.title("🏠 Presentase Rumah Layak & Tidak Layak")
 
@@ -144,7 +124,7 @@ if uploaded_file is not None:
             ax.set_title("Presentase Rumah Layak vs Tidak Layak")
             st.pyplot(fig)
 
-    # 7️⃣ Presentase Sanitasi Layak & Tidak Layak
+    # 6️⃣ Presentase Sanitasi Layak & Tidak Layak
     elif option == "Presentase Sanitasi Layak & Tidak Layak":
         st.title("🚰 Presentase Sanitasi Layak & Tidak Layak")
 
@@ -159,7 +139,7 @@ if uploaded_file is not None:
             ax.set_title("Presentase Sanitasi Layak vs Tidak Layak")
             st.pyplot(fig)
 
-    # 8️⃣ Presentase Perilaku Baik & Tidak Baik
+    # 7️⃣ Presentase Perilaku Baik & Tidak Baik
     elif option == "Presentase Perilaku Baik & Tidak Baik":
         st.title("🧑‍⚕️ Presentase Perilaku Baik & Tidak Baik")
 
