@@ -577,8 +577,22 @@ elif nav == "📈 Visualisasi":
                 
                 st.plotly_chart(fig_bar, use_container_width=True)
 
-            elif pilihan == "🚰 Sanitasi Layak & Tidak Layak (Chart + Detail)":
-                st.subheader("🚰 Sanitasi Layak & Tidak Layak")
+            crosstab_rumah = pd.crosstab(df_rumah['Label'], df_rumah['pekerjaan'])
+
+            # (3) Tampilkan di Streamlit
+            st.title("Korelasi Rumah Tidak Layak dengan Pekerjaan")
+            
+            st.subheader("Tabel Crosstab - Jumlah Kasus")
+            st.dataframe(crosstab_rumah)
+            
+            # (Opsional) Tampilkan persentase
+            crosstab_rumah_percent = crosstab_rumah.apply(lambda r: r / r.sum() * 100, axis=1)
+            st.subheader("Tabel Crosstab - Persentase per Label")
+            st.dataframe(crosstab_rumah_percent)
+    
+                elif pilihan == "🚰 Sanitasi Layak & Tidak Layak (Chart + Detail)":
+                    st.subheader("🚰 Sanitasi Layak & Tidak Layak")
+
                 
                 # --- Pie Chart Sanitasi Layak vs Tidak Layak ---
                 persentase_layak_sanitasi = 100 - persentase_tidak_layak_sanitasi  # pastikan variabel ini sudah didefinisikan
