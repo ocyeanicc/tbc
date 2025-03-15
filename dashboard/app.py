@@ -419,8 +419,8 @@ elif nav == "📈 Visualisasi":
                 "📅 Tren Date Start Pasien",
                 "📊 Distribusi Usia",
                 "🟢 Status Gizi dan Imunisasi",
-                "🎯 Distribusi Pekerjaan"
-                "🎯 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan"
+                "🎯 Distribusi Pekerjaan",
+                "🏠︎ Tabel Crosstab Rumah Tidak Layak vs Pekerjaan"
             ]
             pilihan = st.selectbox("Pilih Visualisasi", visualisasi_list)
             
