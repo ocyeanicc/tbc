@@ -876,7 +876,7 @@ elif nav == "📈 Visualisasi":
                 st.subheader("🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan")
                 
                 # Buat kolom indikator berdasarkan kondisi string (sesuai indikator yang diminta)
-                df['No Jendela'] = df['ventilasi'].str.contains('tidak ada', case=False, na=False)
+                df['Tidak ada Jendela'] = df['ventilasi'].str.contains('tidak ada', case=False, na=False)
                 df['Lantai Tanah'] = df['lantai'].str.contains('tanah', case=False, na=False)
                 df['Lantai Papan/Anyaman'] = df['lantai'].str.contains('papan|anyaman bambu|plester retak', case=False, na=False)
                 df['Pencahayaan Kurang'] = df['pencahayaan'].str.contains('kurang terang', case=False, na=False)
@@ -896,7 +896,7 @@ elif nav == "📈 Visualisasi":
                 summary = grup.size().to_frame("Total Rumah")
                 
                 # Hitung jumlah rumah dengan masing-masing indikator per pekerjaan
-                summary["No Jendela"] = grup["No Jendela"].sum()
+                summary["Tidak ada Jendela"] = grup["No Jendela"].sum()
                 summary["Lantai Tanah"] = grup["Lantai Tanah"].sum()
                 summary["Lantai Papan/Anyaman"] = grup["Lantai Papan/Anyaman"].sum()
                 summary["Pencahayaan Kurang"] = grup["Pencahayaan Kurang"].sum()
