@@ -421,7 +421,8 @@ elif nav == "📈 Visualisasi":
                 "🟢 Status Gizi dan Imunisasi",
                 "🎯 Distribusi Pekerjaan",
                 "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan",
-                "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan"
+                "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan", 
+                "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan"
             ]
             pilihan = st.selectbox("Pilih Visualisasi", visualisasi_list)
             
@@ -954,5 +955,150 @@ elif nav == "📈 Visualisasi":
                 
                 # Tampilkan tabel crosstab
                 st.dataframe(summary.reset_index())
+
+            elif pilihan == "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan":
+                st.subheader("🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan")
+
+            st.subheader("Tabel Crosstab: 15 Indikator Sanitasi vs Pekerjaan")
+
+            # 1) Jamban bukan leher angsa, tidak bertutup & dialirkan ke sungai
+            df['jamban_bukan_leher_angsa_tidak_bertutup_dialirkan_sungai'] = df['jamban'].apply(
+                lambda x: all([
+                    'bukan leher angsa' in str(x).lower(),
+                    'tidak bertutup' in str(x).lower(),
+                    'sungai' in str(x).lower()
+                ])
+            )
+            
+            # 2) Jamban bukan leher angsa, ada tutup & dialirkan ke sungai
+            df['jamban_bukan_leher_angsa_ada_tutup_dialirkan_sungai'] = df['jamban'].apply(
+                lambda x: all([
+                    'bukan leher angsa' in str(x).lower(),
+                    'ada tutup' in str(x).lower(),
+                    'sungai' in str(x).lower()
+                ])
+            )
+            
+            # 3) Tidak ada jamban
+            df['tidak_ada_jamban'] = df['jamban'].str.contains('tidak ada', case=False, na=False)
+            
+            # 4) Tidak ada Sarana Air Bersih
+            df['tidak_ada_sarana_air_bersih'] = df['sarana_air_bersih'].str.contains('tidak ada', case=False, na=False)
+            
+            # 5) SPAL diresapkan tetapi mencemari sumber air (jarak <10m)
+            df['spal_mencemari_sumber_air_jarak_kurang_10m'] = df['sarana_pembuangan_air_limbah'].apply(
+                lambda x: all([
+                    'diresapkan' in str(x).lower(),
+                    'mencemari' in str(x).lower()
+                ])
+            )
+            
+            # 6) Tidak ada SPAL
+            df['tidak_ada_spal'] = df['sarana_pembuangan_air_limbah'].str.contains('tidak ada', case=False, na=False)
+            
+            # 7) Tidak ada Sarana Pembuangan Sampah
+            df['tidak_ada_sarana_pembuangan_sampah'] = df['sarana_pembuangan_sampah'].str.contains('tidak ada', case=False, na=False)
+            
+            # 8) Sarana air bersih bukan milik sendiri & tidak memenuhi syarat kesehatan
+            df['sab_bukan_milik_sendiri_tidak_memenuhi'] = df['sarana_air_bersih'].apply(
+                lambda x: all([
+                    'bukan milik sendiri' in str(x).lower(),
+                    'tidak memenuhi' in str(x).lower()
+                ])
+            )
+            
+            # 9) Sarana air bersih milik sendiri & tidak memenuhi syarat kesehatan
+            df['sab_milik_sendiri_tidak_memenuhi'] = df['sarana_air_bersih'].apply(
+                lambda x: all([
+                    'milik sendiri' in str(x).lower(),
+                    'tidak memenuhi' in str(x).lower()
+                ])
+            )
+            
+            # 10) Sarana Pembuangan Sampah tidak kedap air dan tidak tertutup
+            df['sampah_tidak_kedap_tidak_tertutup'] = df['sarana_pembuangan_sampah'].apply(
+                lambda x: all([
+                    'tidak kedap' in str(x).lower(),
+                    'tidak tertutup' in str(x).lower()
+                ])
+            )
+            
+            # 11) Jamban bukan leher angsa, ada tutup & septic tank
+            df['jamban_bukan_leher_angsa_ada_tutup_septic_tank'] = df['jamban'].apply(
+                lambda x: all([
+                    'bukan leher angsa' in str(x).lower(),
+                    'ada tutup' in str(x).lower(),
+                    'septic tank' in str(x).lower()
+                ])
+            )
+            
+            # 12) SPAL bukan milik sendiri & memenuhi syarat kesehatan
+            df['spal_bukan_milik_sendiri_memenuhi'] = df['sarana_pembuangan_air_limbah'].apply(
+                lambda x: all([
+                    'bukan milik sendiri' in str(x).lower(),
+                    'memenuhi' in str(x).lower()
+                ])
+            )
+            
+            # 13) SPAL diresapkan ke selokan terbuka
+            df['spal_diresapkan_selokan_terbuka'] = df['sarana_pembuangan_air_limbah'].apply(
+                lambda x: all([
+                    'diresapkan' in str(x).lower(),
+                    'selokan terbuka' in str(x).lower()
+                ])
+            )
+            
+            # 14) Sarana air bersih bukan milik sendiri & memenuhi syarat kesehatan
+            df['sab_bukan_milik_sendiri_memenuhi'] = df['sarana_air_bersih'].apply(
+                lambda x: all([
+                    'bukan milik sendiri' in str(x).lower(),
+                    'memenuhi' in str(x).lower()
+                ])
+            )
+            
+            # 15) Sarana Pembuangan Sampah kedap air dan tertutup
+            df['sampah_kedap_air_tertutup'] = df['sarana_pembuangan_sampah'].apply(
+                lambda x: all([
+                    'kedap air' in str(x).lower(),
+                    'tertutup' in str(x).lower()
+                ])
+            )
+            
+            # =============================
+            # Membuat Crosstab vs Pekerjaan
+            # =============================
+            
+            # Kelompokkan data berdasarkan 'pekerjaan'
+            group = df.groupby("pekerjaan")
+            
+            # Buat DataFrame ringkasan dengan kolom "Total"
+            summary = group.size().to_frame("Total Data")
+            
+            # Daftar semua indikator di atas
+            indikator = [
+                'jamban_bukan_leher_angsa_tidak_bertutup_dialirkan_sungai',
+                'jamban_bukan_leher_angsa_ada_tutup_dialirkan_sungai',
+                'tidak_ada_jamban',
+                'tidak_ada_sarana_air_bersih',
+                'spal_mencemari_sumber_air_jarak_kurang_10m',
+                'tidak_ada_spal',
+                'tidak_ada_sarana_pembuangan_sampah',
+                'sab_bukan_milik_sendiri_tidak_memenuhi',
+                'sab_milik_sendiri_tidak_memenuhi',
+                'sampah_tidak_kedap_tidak_tertutup',
+                'jamban_bukan_leher_angsa_ada_tutup_septic_tank',
+                'spal_bukan_milik_sendiri_memenuhi',
+                'spal_diresapkan_selokan_terbuka',
+                'sab_bukan_milik_sendiri_memenuhi',
+                'sampah_kedap_air_tertutup'
+            ]
+            
+            # Tambahkan kolom jumlah & persentase per indikator
+            for ind in indikator:
+                summary[ind] = group[ind].sum()
+                summary[ind + " (%)"] = (summary[ind] / summary["Total Data"]) * 100
+            
+            # Tampilkan tabel crosstab
+            st.dataframe(summary.reset_index())
 
             st.sidebar.success("Visualisasi selesai ditampilkan!")
