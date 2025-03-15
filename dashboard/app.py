@@ -9,10 +9,10 @@ import plotly.io as pio
 from PIL import Image
 import io
 
-# 2) Atur tema Seaborn
+# Atur tema Seaborn
 sns.set_theme(style="whitegrid")
 
-# 2) Inisialisasi session_state untuk menyimpan data CSV, data manual, dan data gabungan
+# Inisialisasi session_state untuk menyimpan data CSV, data manual, dan data gabungan
 if "csv_data" not in st.session_state:
     st.session_state["csv_data"] = pd.DataFrame()
 
@@ -25,11 +25,11 @@ else:
     st.session_state["data"] = st.session_state["data"].sort_index()
 
 
-# 3) Fungsi untuk menampilkan label kolom tanpa underscore
+# Fungsi untuk menampilkan label kolom tanpa underscore
 def display_label(col_name: str) -> str:
     return " ".join(word.capitalize() for word in col_name.split("_"))
 
-# 5) Tampilkan elemen di sidebar
+# Tampilkan elemen di sidebar
 logo_url = "https://raw.githubusercontent.com/lizyyaaa/tbc/main/dashboard/download%20(1).png" 
 st.sidebar.image(logo_url, use_container_width=True)
 
@@ -38,23 +38,16 @@ st.sidebar.title("🏥 Dinas Kesehatan Kota Semarang")
 st.sidebar.subheader("Bidang P2P")
 st.sidebar.markdown("---")
 
-# Contoh info box untuk menambah keterangan di sidebar
+# Info box di sidebar
 st.sidebar.info("Silakan pilih halaman di bawah ini.")
 
-# 6) Navigasi menggunakan radio button di sidebar dengan emoji
-nav = st.sidebar.radio(
-     "🔽 Pilih Halaman", 
-    ["🏠 Home", "📈 Visualisasi"]
-)
+# Navigasi menggunakan radio button di sidebar
+nav = st.sidebar.radio("🔽 Pilih Halaman", ["🏠 Home", "📈 Visualisasi"])
 
+# Fungsi download chart (pastikan variabel png_buffer tidak digunakan)
 def download_chart(fig):
-    # Simpan gambar sebagai PNG langsung dari Plotly
     buffer = fig.to_image(format="png", engine="kaleido")
-
-    # Buat stream buffer dari bytes
     image_stream = io.BytesIO(buffer)
-
-    # Tombol download
     st.download_button(
         label="⬇️ Download Gambar",
         data=image_stream,
@@ -63,20 +56,10 @@ def download_chart(fig):
         key=f"download_chart_{datetime.now().timestamp()}"
     )
 
-    # Tombol download
-    st.download_button(
-        label="⬇️ Download Gambar",
-        data=png_buffer,
-        file_name="chart.png",
-        mime="image/png",
-        key=f"download_chart_{datetime.now().timestamp()}"
-    )
-
-# Fungsi untuk menampilkan chart dan download
 def tampilkan_dan_download(fig):
-    st.plotly_chart(fig)  # Tampilkan grafik Plotly
-    download_chart(fig)   # Tambahkan tombol download
-    
+    st.plotly_chart(fig)
+    download_chart(fig)
+
 # ================================
 # Halaman Home: Input & Upload Data
 # ================================
@@ -84,21 +67,19 @@ if nav == "🏠 Home":
     st.title("🏠 Home - Input & Upload Data")
     st.markdown("### Upload file CSV dan masukkan data baru secara manual. Data yang diinput akan digabungkan dan ditampilkan.")
     
-     # --- Bagian Upload CSV ---
+    # --- Bagian Upload CSV ---
     uploaded_file = st.file_uploader("📂 Upload file CSV", type=["csv"])
     if uploaded_file is not None:
         try:
             # Membaca CSV dengan separator ';'
             df_csv = pd.read_csv(uploaded_file, sep=';', encoding='utf-8')
             st.success("File CSV berhasil diupload!")
-            # Update session_state csv_data dan gabungkan dengan manual_data
             st.session_state["csv_data"] = df_csv.copy()
             st.session_state["data"] = pd.concat([st.session_state["csv_data"], st.session_state["manual_data"]], ignore_index=True)
             st.info("Data CSV telah disimpan dan digabungkan dengan data manual yang ada.")
         except Exception as e:
             st.error(f"Error membaca file: {e}")
    
-
     # Urutan field yang diinginkan
     fields_order = [
         "puskesmas", "pasien", "age", "gender", "faskes", "city", "regency",
@@ -221,16 +202,13 @@ if nav == "🏠 Home":
     with st.form(key="manual_form"):
         input_manual = {}
         for col in fields_order:
-            label = col.replace("_", " ").title()  # Ganti dengan fungsi display_label jika ada
-            
-            # Kolom dengan tipe khusus
+            label = col.replace("_", " ").title()  # Bisa juga menggunakan fungsi display_label
             if col == "pasien":
                 input_manual[col] = st.text_input(label, value="")
             elif col == "age":
                 input_manual[col] = st.number_input(label, min_value=0, step=1, value=0)
             elif col in ["date_start", "tgl_kunjungan"]:
                 input_manual[col] = st.date_input(label, value=datetime.today())
-            # Kolom yang memiliki opsi di option_dict
             elif col in option_dict:
                 options = option_dict[col]
                 if options:
@@ -238,29 +216,28 @@ if nav == "🏠 Home":
                 else:
                     input_manual[col] = st.text_input(label, value="")
             else:
-                # Kolom lainnya default ke text_input
                 input_manual[col] = st.text_input(label, value="")
-        
         submitted_manual = st.form_submit_button("Submit Data Manual Tambahan")
     
     if submitted_manual:
-        # Ubah nilai date_input menjadi pd.Timestamp, lalu format menjadi string "YYYY-MM-DD"
-        df_manual = pd.DataFrame([input_manual])
-        df_manual["date_start"] = pd.to_datetime(df_manual["date_start"]).dt.strftime('%Y-%m-%d')
-        df_manual["tgl_kunjungan"] = pd.to_datetime(df_manual["tgl_kunjungan"]).dt.strftime('%Y-%m-%d')
-
-        
-        df_manual = pd.DataFrame([input_manual])
-        st.success("Data manual tambahan berhasil ditambahkan!")
-        st.dataframe(df_manual)
-        
-        # Update session_state manual_data dengan menambahkan data baru
-        st.session_state["manual_data"] = pd.concat([st.session_state["manual_data"], df_manual], ignore_index=True)
-        # Gabungkan data CSV dan data manual menjadi data gabungan
-        st.session_state["data"] = pd.concat([st.session_state["csv_data"], st.session_state["manual_data"]], ignore_index=True)
-        st.info("Data gabungan telah disimpan. Buka halaman Visualisasi untuk melihat chart.")
+        # Validasi: periksa bahwa setiap field bertipe string tidak kosong
+        missing_fields = []
+        for key, value in input_manual.items():
+            # Hanya periksa field yang berupa string (text input)
+            if isinstance(value, str) and value.strip() == "":
+                missing_fields.append(display_label(key))
+        if missing_fields:
+            st.error("Harap lengkapi data di field: " + ", ".join(missing_fields))
+        else:
+            df_manual = pd.DataFrame([input_manual])
+            df_manual["date_start"] = pd.to_datetime(df_manual["date_start"]).dt.strftime('%Y-%m-%d')
+            df_manual["tgl_kunjungan"] = pd.to_datetime(df_manual["tgl_kunjungan"]).dt.strftime('%Y-%m-%d')
+            st.success("Data manual tambahan berhasil ditambahkan!")
+            st.dataframe(df_manual)
+            st.session_state["manual_data"] = pd.concat([st.session_state["manual_data"], df_manual], ignore_index=True)
+            st.session_state["data"] = pd.concat([st.session_state["csv_data"], st.session_state["manual_data"]], ignore_index=True)
+            st.info("Data gabungan telah disimpan. Buka halaman Visualisasi untuk melihat chart.")
     
-    # Tampilkan data gabungan jika sudah ada
     if not st.session_state["data"].empty:
         st.markdown("### Data Gabungan Saat Ini")
         st.dataframe(st.session_state["data"])
