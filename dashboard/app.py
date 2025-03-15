@@ -421,7 +421,7 @@ elif nav == "📈 Visualisasi":
                 "🟢 Status Gizi dan Imunisasi",
                 "🎯 Distribusi Pekerjaan",
                 "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan",
-                "🚩 Tabel Crosstab Perlikau Tidak Baik vs Pekerjaan"
+                "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan"
             ]
             pilihan = st.selectbox("Pilih Visualisasi", visualisasi_list)
             
@@ -875,54 +875,49 @@ elif nav == "📈 Visualisasi":
             elif pilihan == "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan":
                 st.subheader("🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan")
                 
-                # Misalkan df adalah DataFrame Anda yang sudah dimuat dan memiliki kolom-kolom yang diperlukan.
-                # Contoh: df = pd.read_csv('data.csv', sep=';')
+                # Buat kolom indikator berdasarkan kondisi string (sesuai indikator yang diminta)
+                df['No Jendela'] = df['ventilasi'].str.contains('tidak ada', case=False, na=False)
+                df['Lantai Tanah'] = df['lantai'].str.contains('tanah', case=False, na=False)
+                df['Lantai Papan/Anyaman'] = df['lantai'].str.contains('papan|anyaman bambu|plester retak', case=False, na=False)
+                df['Pencahayaan Kurang'] = df['pencahayaan'].str.contains('kurang terang', case=False, na=False)
+                df['Luas Ventilasi < 10%'] = df['ventilasi'].str.contains('luas ventilasi < 10%', case=False, na=False)
+                df['Tidak Ada Langit-langit'] = df['langit_langit'].str.contains('tidak ada', case=False, na=False)
+                df['Tidak Ada Lubang Asap'] = df['lubang_asap_dapur'].str.contains('tidak ada', case=False, na=False)
+                df['Lubang Asap Kurang'] = df['lubang_asap_dapur'].str.contains('luas ventilasi < 10%', case=False, na=False)
                 
-                # --- Definisikan indikator rumah tidak layak berdasarkan kriteria yang diberikan ---
-                # Perhatikan: sesuaikan pengecekan string dengan format data Anda.
-                indikator = {
-                    # Indikator: apakah tidak ada jendela di rumah (cek kedua kolom, jika ada)
-                    'Tidak ada Jendela': (
-                        df['jendela_kamar_tidur'].str.contains('tidak ada', case=False, na=False) | 
-                        df['jendela_ruang_keluarga'].str.contains('tidak ada', case=False, na=False)
-                    ),
-                    # Indikator: lantai tanah
-                    'Lantai Tanah': df['lantai'].str.contains('tanah', case=False, na=False),
-                    # Indikator: lantai papan/anyaman bambu/plester retak berdebu
-                    'Lantai Papan/Bambu/Plester Retak': df['lantai'].str.contains('papan|anyaman bambu|plester retak', case=False, na=False),
-                    # Indikator: pencahayaan kurang terang, kurang jelas untuk membaca normal
-                    'Pencahayaan Kurang Terang': df['pencahayaan'].str.contains('kurang terang|kurang jelas', case=False, na=False),
-                    # Indikator: luas ventilasi < 10% dari luas lantai
-                    'Ventilasi < 10%': df['ventilasi'].str.contains('< 10%', case=False, na=False),
-                    # Indikator: tidak ada langit-langit
-                    'Tidak ada Langit-langit': df['langit_langit'].str.contains('tidak ada', case=False, na=False),
-                    # Indikator: tidak ada lubang asap dapur
-                    'Tidak ada Lubang Asap Dapur': df['lubang_asap_dapur'].str.contains('tidak ada', case=False, na=False),
-                    # Indikator: lubang asap dapur dengan luas ventilasi < 10% dari luas lantai dapur
-                    'Lubang Asap < 10% Luas Lantai Dapur': df['lubang_asap_dapur'].str.contains('luas ventilasi < 10%', case=False, na=False)
-                }
+                # Jika ingin hanya fokus pada rumah yang tidak layak secara keseluruhan,
+                # dan jika kolom 'Label' sudah tersedia, bisa gunakan:
+                # df = df[df['Label'] == 'Tidak Layak']
                 
-                # Tambahkan kolom biner untuk tiap indikator (1 jika terpenuhi, 0 jika tidak)
-                for key, condition in indikator.items():
-                    df[key] = condition.astype(int)
+                # Grouping berdasarkan kolom 'pekerjaan'
+                grup = df.groupby("pekerjaan")
                 
-                # --- Definisikan kolom 'Rumah Tidak Layak'
-                # Misalnya, jika setidaknya satu indikator terpenuhi, rumah dianggap tidak layak.
-                df['Rumah Tidak Layak'] = (df[list(indikator.keys())].sum(axis=1) > 0).astype(int)
+                # Hitung total rumah per kategori pekerjaan
+                summary = grup.size().to_frame("Total Rumah")
                 
-                # --- Buat tabel crosstab antara variabel 'pekerjaan' dan 'Rumah Tidak Layak'
-                crosstab_rumah_pekerjaan = pd.crosstab(df['pekerjaan'], df['Rumah Tidak Layak'])
-                print("Tabel Crosstab Rumah Tidak Layak vs Pekerjaan:")
-                print(crosstab_rumah_pekerjaan)
+                # Hitung jumlah rumah dengan masing-masing indikator per pekerjaan
+                summary["No Jendela"] = grup["No Jendela"].sum()
+                summary["Lantai Tanah"] = grup["Lantai Tanah"].sum()
+                summary["Lantai Papan/Anyaman"] = grup["Lantai Papan/Anyaman"].sum()
+                summary["Pencahayaan Kurang"] = grup["Pencahayaan Kurang"].sum()
+                summary["Luas Ventilasi < 10%"] = grup["Luas Ventilasi < 10%"].sum()
+                summary["Tidak Ada Langit-langit"] = grup["Tidak Ada Langit-langit"].sum()
+                summary["Tidak Ada Lubang Asap"] = grup["Tidak Ada Lubang Asap"].sum()
+                summary["Lubang Asap Kurang"] = grup["Lubang Asap Kurang"].sum()
                 
-                # --- Buat tabel ringkasan per pekerjaan untuk masing-masing indikator
-                summary_indikator = df.groupby('pekerjaan')[list(indikator.keys())].sum()
-                print("\nTabel Ringkasan Indikator Rumah Tidak Layak per Pekerjaan:")
-                print(summary_indikator)
+                # Hitung persentase untuk tiap indikator (berdasarkan total rumah per pekerjaan)
+                indikator = [
+                    "No Jendela", "Lantai Tanah", "Lantai Papan/Anyaman", "Pencahayaan Kurang", 
+                    "Luas Ventilasi < 10%", "Tidak Ada Langit-langit", "Tidak Ada Lubang Asap", "Lubang Asap Kurang"
+                ]
+                for ind in indikator:
+                    summary[ind + " (%)"] = (summary[ind] / summary["Total Rumah"]) * 100
+                
+                # Tampilkan tabel crosstab
+                st.dataframe(summary.reset_index())
 
-
-            elif pilihan == "🚩 Tabel Crosstab Perlikau Tidak Baik vs Pekerjaan":
-                st.subheader("🚩 Tabel Crosstab Perlikau Tidak Baik vs Pekerjaan")
+            elif pilihan == "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan":
+                st.subheader("🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan")
 
                 # Buat kolom indikator berdasarkan kondisi string di masing-masing kolom perilaku
                 df['BAB di sungai/kebun/kolam/sembarangan'] = df['membuang_tinja'].apply(
