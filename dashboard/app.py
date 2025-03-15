@@ -420,7 +420,8 @@ elif nav == "📈 Visualisasi":
                 "📊 Distribusi Usia",
                 "🟢 Status Gizi dan Imunisasi",
                 "🎯 Distribusi Pekerjaan",
-                "🏠︎ Tabel Crosstab Rumah Tidak Layak vs Pekerjaan"
+                "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan",
+                "🚩Tabel Crosstab Perlikau Tidak Baik vs Pekerjaan"
             ]
             pilihan = st.selectbox("Pilih Visualisasi", visualisasi_list)
             
@@ -871,11 +872,11 @@ elif nav == "📈 Visualisasi":
                 
                 st.plotly_chart(fig, use_container_width=True)
 
-            elif pilihan == "🏠︎ Tabel Crosstab Rumah Tidak Layak vs Pekerjaan":
-                st.subheader("🏠︎ Tabel Crosstab Rumah Tidak Layak vs Pekerjaan")
+            elif pilihan == "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan":
+                st.subheader("🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan")
                 
                 # Buat kolom indikator berdasarkan kondisi string (sesuai indikator yang diminta)
-                df['No Jendela'] = df['ventilasi'].str.contains('tidak ada', case=False, na=False)
+                df['Tidak ada Jendela'] = df['ventilasi'].str.contains('tidak ada', case=False, na=False)
                 df['Lantai Tanah'] = df['lantai'].str.contains('tanah', case=False, na=False)
                 df['Lantai Papan/Anyaman'] = df['lantai'].str.contains('papan|anyaman bambu|plester retak', case=False, na=False)
                 df['Pencahayaan Kurang'] = df['pencahayaan'].str.contains('kurang terang', case=False, na=False)
@@ -895,7 +896,7 @@ elif nav == "📈 Visualisasi":
                 summary = grup.size().to_frame("Total Rumah")
                 
                 # Hitung jumlah rumah dengan masing-masing indikator per pekerjaan
-                summary["No Jendela"] = grup["No Jendela"].sum()
+                summary["Tidak ada Jendela"] = grup["No Jendela"].sum()
                 summary["Lantai Tanah"] = grup["Lantai Tanah"].sum()
                 summary["Lantai Papan/Anyaman"] = grup["Lantai Papan/Anyaman"].sum()
                 summary["Pencahayaan Kurang"] = grup["Pencahayaan Kurang"].sum()
@@ -915,5 +916,43 @@ elif nav == "📈 Visualisasi":
                 # Tampilkan tabel crosstab
                 st.dataframe(summary.reset_index())
 
+            elif pilihan == "🚩 Tabel Crosstab Perlikau Tidak Baik vs Pekerjaan":
+                st.subheader("🚩 Tabel Crosstab Perlikau Tidak Baik vs Pekerjaan")
+
+                # Buat kolom indikator berdasarkan kondisi string di masing-masing kolom perilaku
+                df['BAB di sungai/kebun/kolam/sembarangan'] = df['membuang_tinja'].apply(
+                    lambda x: any(word in str(x).lower() for word in ['sungai', 'kebun', 'kolam', 'sembarangan'])
+                )
+                df['Tidak CTPS'] = df['kebiasaan_ctps'].str.contains('tidak', case=False, na=False)
+                df['Tidak pernah membersihkan'] = df['membersihkan_rumah'].str.contains('tidak pernah', case=False, na=False)
+                df['Buang sampah tidak teratur'] = df['membuang_sampah'].apply(
+                    lambda x: any(word in str(x).lower() for word in ['sungai', 'kebun', 'kolam', 'sembarangan', 'dibakar'])
+                )
+                df['Tidak pernah buka jendela ruang keluarga'] = df['membuka_jendela_ruang_keluarga'].str.contains('tidak pernah', case=False, na=False)
+                df['Tidak pernah buka jendela kamar tidur'] = df['membuka_jendela_kamar_tidur'].str.contains('tidak pernah', case=False, na=False)
+                
+                # Grouping berdasarkan 'pekerjaan'
+                group = df.groupby("pekerjaan")
+                
+                # Hitung total data (rumah/pasien) per kategori pekerjaan
+                summary = group.size().to_frame("Total Rumah")
+                
+                # Daftar indikator perilaku tidak baik
+                indikator = [
+                    "BAB di sungai/kebun/kolam/sembarangan",
+                    "Tidak CTPS",
+                    "Tidak pernah membersihkan",
+                    "Buang sampah tidak teratur",
+                    "Tidak pernah buka jendela ruang keluarga",
+                    "Tidak pernah buka jendela kamar tidur"
+                ]
+                
+                # Hitung jumlah dan persentase tiap indikator per kategori pekerjaan
+                for ind in indikator:
+                    summary[ind] = group[ind].sum()
+                    summary[ind + " (%)"] = (summary[ind] / summary["Total Rumah"]) * 100
+                
+                # Tampilkan tabel crosstab
+                st.dataframe(summary.reset_index())
 
             st.sidebar.success("Visualisasi selesai ditampilkan!")
