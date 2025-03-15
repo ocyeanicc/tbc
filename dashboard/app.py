@@ -876,10 +876,7 @@ elif nav == "📈 Visualisasi":
             
             elif pilihan == "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan":
                 st.subheader("🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan")
-                
-                               # --- Tabel Crosstab: Rumah Tidak Layak vs Pekerjaan ---
-                st.subheader("Tabel Crosstab: Rumah Tidak Layak vs Pekerjaan")
-                
+
                 # Ambil data 'pekerjaan' dari df untuk baris-baris yang terdapat di df_rumah (asumsi index cocok)
                 df_rumah_with_pekerjaan = df.loc[df_rumah.index, ["pekerjaan"]].copy()
                 # Tambahkan kolom indikator rumah (Label: Layak/Tidak Layak)
