@@ -896,41 +896,30 @@ elif nav == "📈 Visualisasi":
             elif pilihan == "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan":
                 st.subheader("🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan")
 
-                # Buat kolom indikator berdasarkan kondisi string di masing-masing kolom perilaku
-                df['BAB di sungai/kebun/kolam/sembarangan'] = df['membuang_tinja'].apply(
-                    lambda x: any(word in str(x).lower() for word in ['sungai', 'kebun', 'kolam', 'sembarangan'])
+                # Pastikan df_perilaku memiliki kolom "Label" berisi "Layak" / "Tidak Layak"
+                # dan df memiliki kolom "pekerjaan".
+                
+                # 1) Ambil kolom "pekerjaan" dari df berdasarkan indeks df_perilaku
+                df_perilaku_with_pekerjaan = df.loc[df_perilaku.index, ["pekerjaan"]].copy()
+                
+                # 2) Tambahkan kolom "Perilaku_Label" (Layak/Tidak Layak) dari df_perilaku
+                df_perilaku_with_pekerjaan["Perilaku_Label"] = df_perilaku["Label"].values
+                
+                # 3) Buat crosstab
+                crosstab_perilaku = pd.crosstab(
+                    df_perilaku_with_pekerjaan["pekerjaan"],
+                    df_perilaku_with_pekerjaan["Perilaku_Label"]
                 )
-                df['Tidak CTPS'] = df['kebiasaan_ctps'].str.contains('tidak', case=False, na=False)
-                df['Tidak pernah membersihkan'] = df['membersihkan_rumah'].str.contains('tidak pernah', case=False, na=False)
-                df['Buang sampah tidak teratur'] = df['membuang_sampah'].apply(
-                    lambda x: any(word in str(x).lower() for word in ['sungai', 'kebun', 'kolam', 'sembarangan', 'dibakar'])
-                )
-                df['Tidak pernah buka jendela ruang keluarga'] = df['membuka_jendela_ruang_keluarga'].str.contains('tidak pernah', case=False, na=False)
-                df['Tidak pernah buka jendela kamar tidur'] = df['membuka_jendela_kamar_tidur'].str.contains('tidak pernah', case=False, na=False)
                 
-                # Grouping berdasarkan 'pekerjaan'
-                group = df.groupby("pekerjaan")
+                # 4) (Opsional) Tambahkan kolom Total dan persentase "Tidak Layak"
+                crosstab_perilaku["Total"] = crosstab_perilaku.sum(axis=1)
+                if "Tidak Layak" in crosstab_perilaku.columns:
+                    crosstab_perilaku["% Tidak Layak"] = (
+                        crosstab_perilaku["Tidak Layak"] / crosstab_perilaku["Total"]
+                    ) * 100
                 
-                # Hitung total data (rumah/pasien) per kategori pekerjaan
-                summary = group.size().to_frame("Total Rumah")
-                
-                # Daftar indikator perilaku tidak baik
-                indikator = [
-                    "BAB di sungai/kebun/kolam/sembarangan",
-                    "Tidak CTPS",
-                    "Tidak pernah membersihkan",
-                    "Buang sampah tidak teratur",
-                    "Tidak pernah buka jendela ruang keluarga",
-                    "Tidak pernah buka jendela kamar tidur"
-                ]
-                
-                # Hitung jumlah dan persentase tiap indikator per kategori pekerjaan
-                for ind in indikator:
-                    summary[ind] = group[ind].sum()
-                    summary[ind + " (%)"] = (summary[ind] / summary["Total Rumah"]) * 100
-                
-                # Tampilkan tabel crosstab
-                st.dataframe(summary.reset_index())
+                # 5) Tampilkan di Streamlit
+                st.dataframe(crosstab_perilaku)
 
             
             elif pilihan == "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan":
