@@ -896,7 +896,7 @@ elif nav == "📈 Visualisasi":
                 summary = grup.size().to_frame("Total Rumah")
                 
                 # Hitung jumlah rumah dengan masing-masing indikator per pekerjaan
-                summary["Tidak ada Jendela"] = grup["No Jendela"].sum()
+                summary["Tidak ada Jendela"] = grup["Tidak ada Jendela"].sum()
                 summary["Lantai Tanah"] = grup["Lantai Tanah"].sum()
                 summary["Lantai Papan/Anyaman"] = grup["Lantai Papan/Anyaman"].sum()
                 summary["Pencahayaan Kurang"] = grup["Pencahayaan Kurang"].sum()
@@ -907,7 +907,7 @@ elif nav == "📈 Visualisasi":
                 
                 # Hitung persentase untuk tiap indikator (berdasarkan total rumah per pekerjaan)
                 indikator = [
-                    "No Jendela", "Lantai Tanah", "Lantai Papan/Anyaman", "Pencahayaan Kurang", 
+                    "Tidak ada Jendela", "Lantai Tanah", "Lantai Papan/Anyaman", "Pencahayaan Kurang", 
                     "Luas Ventilasi < 10%", "Tidak Ada Langit-langit", "Tidak Ada Lubang Asap", "Lubang Asap Kurang"
                 ]
                 for ind in indikator:
