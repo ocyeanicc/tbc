@@ -959,8 +959,6 @@ elif nav == "📈 Visualisasi":
             elif pilihan == "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan":
                 st.subheader("🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan")
 
-            st.subheader("Tabel Crosstab: 15 Indikator Sanitasi vs Pekerjaan")
-
             # 1) Jamban bukan leher angsa, tidak bertutup & dialirkan ke sungai
             df['jamban_bukan_leher_angsa_tidak_bertutup_dialirkan_sungai'] = df['jamban'].apply(
                 lambda x: all([
