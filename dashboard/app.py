@@ -8,6 +8,29 @@ import plotly.express as px
 import plotly.io as pio  
 from PIL import Image
 import io
+import mysql.connector
+
+# Konfigurasi koneksi ke database XAMPP
+conn = mysql.connector.connect(
+    host="localhost",
+    user="root",         # biasakan default user XAMPP adalah 'root'
+    password="",         # password kosong, kecuali sudah diubah
+    database="dashboard_db"  # ganti dengan nama database Anda
+)
+
+cursor = conn.cursor()
+
+# Contoh query untuk mengambil data
+cursor.execute("SELECT * FROM nama_tabel")
+data = cursor.fetchall()
+
+# Tampilkan data pada dashboard Streamlit
+st.title("Dashboard Data")
+st.write(data)
+
+# Jangan lupa untuk menutup koneksi setelah selesai
+conn.close()
+
 
 # Atur tema Seaborn
 sns.set_theme(style="whitegrid")
