@@ -21,7 +21,7 @@ conn = mysql.connector.connect(
 cursor = conn.cursor()
 
 # Contoh query untuk mengambil data
-cursor.execute("SELECT * FROM nama_tabel")
+cursor.execute("SELECT * FROM data_input")
 data = cursor.fetchall()
 
 # Tampilkan data pada dashboard Streamlit
