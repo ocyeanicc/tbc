@@ -12,23 +12,6 @@ import mysql.connector
 import os
 from db_connection import get_connection
 
-# Ambil koneksi dan error (jika ada)
-conn, err = get_connection()
-
-if err:
-    st.error(f"Error connecting to the database: {err}")
-elif conn is not None and conn.is_connected():
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM data_input")  # Ganti 'nama_tabel' dengan nama tabel yang ada
-    data = cursor.fetchall()
-
-    st.title("Dashboard Data")
-    st.write(data)
-
-    conn.close()
-else:
-    st.error("Database connection not established.")
-
 
 # Atur tema Seaborn
 sns.set_theme(style="whitegrid")
