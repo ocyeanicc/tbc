@@ -11,28 +11,6 @@ import io
 import mysql.connector
 import os
 
-try:
-    conn = mysql.connector.connect(
-        host="127.0.0.1",
-        port=3306,
-        user="root",
-        password="",         # Kosong jika Anda belum mengatur password di XAMPP
-        database="dashboard_db"  # Sesuaikan dengan nama database Anda
-    )
-except mysql.connector.Error as err:
-    st.error(f"Error connecting to the database: {err}")
-    conn = None
-
-if conn is not None and conn.is_connected():
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM nama_tabel")  # Sesuaikan nama_tabel
-    data = cursor.fetchall()
-    st.title("Dashboard Data")
-    st.write(data)
-    conn.close()
-else:
-    st.error("Database connection not established.")
-    
 
 # Atur tema Seaborn
 sns.set_theme(style="whitegrid")
