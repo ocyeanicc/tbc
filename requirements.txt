@@ -6,5 +6,4 @@ streamlit==1.43.1
 plotly==6.0.0
 kaleido==0.2.1
 mysql-connector-python==8.0.33
-
-
+geopy
