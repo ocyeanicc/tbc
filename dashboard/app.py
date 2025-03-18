@@ -403,7 +403,8 @@ elif nav == "📈 Visualisasi":
                 "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan",
                 "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan", 
                 "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan",
-                "📊 Jumlah Pasien Berdasarkan Tipe TB"
+                "📊 Jumlah Pasien Berdasarkan Tipe TB", 
+                "🗺️ Peta Frekuensi Pasien per Kelurahan"
             ]
             pilihan = st.selectbox("Pilih Visualisasi", visualisasi_list)
             
@@ -1025,6 +1026,82 @@ elif nav == "📈 Visualisasi":
                     )
                     fig.update_traces(textposition="outside")
                     st.plotly_chart(fig, use_container_width=True)
-        
+
+            elif pilihan == "🗺️ Peta Frekuensi Pasien per Kelurahan":
+                st.subheader("🗺️ Peta Frekuensi Pasien per Kelurahan")
+                
+                # Pastikan kolom 'kelurahan' ada
+                if "kelurahan" not in df.columns:
+                    st.warning("Kolom 'kelurahan' tidak ditemukan di data.")
+                else:
+                    # 1) Hitung jumlah pasien per kelurahan
+                    df_kelurahan = df.groupby("kelurahan")["pasien"].count().reset_index()
+                    df_kelurahan.columns = ["kelurahan", "jumlah_pasien"]
+                    
+                    # 2) Dapatkan daftar unik kelurahan
+                    unique_kelurahan = df_kelurahan["kelurahan"].unique()
+                    
+                    # 3) Gunakan geopy untuk geocoding setiap kelurahan
+                    from geopy.geocoders import Nominatim
+                    import time
+            
+                    geolocator = Nominatim(user_agent="streamlit_app")
+                    
+                    def get_coordinates(kelurahan):
+                        try:
+                            # Asumsikan kelurahan berada di Semarang, Indonesia.
+                            location = geolocator.geocode(f"{kelurahan}, Semarang, Indonesia")
+                            if location:
+                                return (location.latitude, location.longitude)
+                        except Exception as e:
+                            st.write(f"Error saat geocode {kelurahan}: {e}")
+                        return (None, None)
+                    
+                    kelurahan_coords = {}
+                    for k in unique_kelurahan:
+                        coords = get_coordinates(k)
+                        if coords[0] is not None:
+                            kelurahan_coords[k] = coords
+                        else:
+                            st.write(f"Koordinat untuk {k} tidak ditemukan.")
+                        time.sleep(1)  # Beri jeda untuk menghindari rate limiting
+                    
+                    st.write("Koordinat Kelurahan (hasil geocode):", kelurahan_coords)
+                    
+                    # 4) Ubah dictionary koordinat menjadi DataFrame
+                    coords_df = pd.DataFrame(
+                        [(k, v[0], v[1]) for k, v in kelurahan_coords.items()],
+                        columns=["kelurahan", "lat", "lon"]
+                    )
+                    
+                    # 5) Gabungkan data frekuensi pasien dengan koordinat
+                    df_map = pd.merge(df_kelurahan, coords_df, on="kelurahan", how="inner")
+                    
+                    # 6) Buat peta dengan Folium (titik tengah di Semarang)
+                    import folium
+                    from streamlit_folium import st_folium
+            
+                    m = folium.Map(location=[-7.005145, 110.438125], zoom_start=12)
+                    
+                    # 7) Tambahkan marker untuk tiap kelurahan
+                    for i, row in df_map.iterrows():
+                        kel = row["kelurahan"]
+                        lat = row["lat"]
+                        lon = row["lon"]
+                        jml = row["jumlah_pasien"]
+                        
+                        folium.CircleMarker(
+                            location=[lat, lon],
+                            radius=5 + jml * 0.1,  # Besaran radius menyesuaikan jumlah pasien
+                            color="blue",
+                            fill=True,
+                            fill_color="blue",
+                            fill_opacity=0.7,
+                            popup=f"<b>{kel}</b><br>Jumlah Pasien: {jml}"
+                        ).add_to(m)
+                    
+                    st.title("Peta Frekuensi Pasien per Kelurahan")
+                    st_data = st_folium(m, width=700, height=500)
+
 
             st.sidebar.success("Visualisasi selesai ditampilkan!")
