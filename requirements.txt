@@ -7,5 +7,5 @@ plotly==6.0.0
 kaleido==0.2.1
 mysql-connector-python==8.0.33
 geopy==2.2.0
-folium==0.12.1
+folium==0.13,!=0.15.0
 streamlit-folium==0.24.0
