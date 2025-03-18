@@ -982,6 +982,48 @@ elif nav == "📈 Visualisasi":
 
             elif pilihan == "📊 Jumlah Pasien Berdasarkan Tipe TB":
                 st.subheader("📊 Jumlah Pasien Berdasarkan Tipe TB")
-               
+
+                # Periksa apakah kolom 'type_tb' ada di DataFrame gabungan
+                if "type_tb" not in df.columns:
+                    st.warning("Kolom 'type_tb' tidak ditemukan di data.")
+                else:
+                    # Debug: Tampilkan nilai unik dan value counts di kolom type_tb
+                    st.write("Nilai unik di kolom 'type_tb':", df["type_tb"].unique())
+                    st.write("Value counts kolom 'type_tb':")
+                    st.write(df["type_tb"].value_counts(dropna=False))
+                    
+                    # Fungsi mapping yang fleksibel untuk mengonversi nilai ke "SO" atau "RO"
+                    def map_tb_type(x):
+                        x_str = str(x).strip().lower()  # ubah ke string, hapus spasi, dan lowercase
+                        if x_str in ["1", "1.0", "so"]:
+                            return "SO"
+                        elif x_str in ["2", "2.0", "ro"]:
+                            return "RO"
+                        else:
+                            return "Lainnya"
+            
+                    # Terapkan mapping ke kolom 'type_tb' dan simpan hasilnya di kolom baru "type_tb_str"
+                    df["type_tb_str"] = df["type_tb"].apply(map_tb_type)
+                    
+                    # (Opsional) Hanya ambil data yang ter-mapping ke "SO" atau "RO"
+                    df_filtered = df[df["type_tb_str"].isin(["SO", "RO"])]
+            
+                    # Hitung jumlah pasien per tipe TB
+                    count_tipe = df_filtered["type_tb_str"].value_counts().reset_index()
+                    count_tipe.columns = ["Tipe TB", "Jumlah Pasien"]
+            
+                    # Buat bar chart menggunakan Plotly Express
+                    fig = px.bar(
+                        count_tipe,
+                        x="Tipe TB",
+                        y="Jumlah Pasien",
+                        text="Jumlah Pasien",
+                        title="Jumlah Pasien Berdasarkan Tipe TB (SO & RO)",
+                        labels={"Tipe TB": "Tipe TB", "Jumlah Pasien": "Jumlah Pasien"},
+                        color="Jumlah Pasien",
+                        color_continuous_scale="Viridis"
+                    )
+                    fig.update_traces(textposition="outside")
+                    st.plotly_chart(fig, use_container_width=True)
 
             st.sidebar.success("Visualisasi selesai ditampilkan!")
