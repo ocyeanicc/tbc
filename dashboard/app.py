@@ -910,26 +910,26 @@ elif nav == "📈 Visualisasi":
                 
                 # 4) (Opsional) Tambahkan kolom Total dan persentase "Tidak Layak"
                 crosstab_perilaku["Total"] = crosstab_perilaku.sum(axis=1)
-                if "Tidak Baik" in crosstab_perilaku.columns:
-                    crosstab_perilaku["% Tidak Baik"] = (
-                        crosstab_perilaku["Tidak Baik"] / crosstab_perilaku["Total"]
+                if "Tidak Layak" in crosstab_perilaku.columns:
+                    crosstab_perilaku["% Tidak Layak"] = (
+                        crosstab_perilaku["Tidak Layak"] / crosstab_perilaku["Total"]
                     ) * 100
                 
                 # 5) Tampilkan di Streamlit
                 st.dataframe(crosstab_perilaku)
-
-                # **Visualisasi dengan Plotly (Hanya % Tidak Baik)**
+            
+                # **Visualisasi dengan Plotly (Hanya % Tidak Layak)**
                 fig = px.bar(
                     crosstab_perilaku.reset_index(),
                     x="pekerjaan",
-                    y="% Tidak Baik",
+                    y="% Tidak Layak",
                     title="Persentase Perilaku Tidak Baik per Pekerjaan",
-                    labels={"pekerjaan": "Pekerjaan", "% Tidak Baik": "Persentase Perilaku Tidak Baik (%)"},
-                    text="% Tidak Baik",
-                    color="% Tidak Baik",
+                    labels={"pekerjaan": "Pekerjaan", "% Tidak Layak": "Persentase Perilaku Tidak Baik (%)"},
+                    text="% Tidak Layak",
+                    color="% Tidak Layak",
                     color_continuous_scale="Reds"
                 )
-
+            
                 fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
                 fig.update_layout(xaxis_tickangle=-45)  # Rotasi label sumbu X agar lebih rapi
                 st.plotly_chart(fig)
