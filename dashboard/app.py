@@ -402,7 +402,8 @@ elif nav == "📈 Visualisasi":
                 "🎯 Distribusi Pekerjaan",
                 "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan",
                 "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan", 
-                "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan"
+                "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan",
+                "📊 Jumlah Pasien Berdasarkan Tipe TB"
             ]
             pilihan = st.selectbox("Pilih Visualisasi", visualisasi_list)
             
@@ -929,6 +930,36 @@ elif nav == "📈 Visualisasi":
                 
                 # 5) Tampilkan di Streamlit
                 st.dataframe(crosstab_sanitasi)
+
+            elif pilihan == "📊 Jumlah Pasien Berdasarkan Tipe TB":
+                st.subheader("📊 Jumlah Pasien Berdasarkan Tipe TB")
+                
+                # Visualisasi Jumlah Pasien Berdasarkan Tipe TB (SO dan RO)
+                if "type_tb" in df.columns:
+                    # Konversi nilai pada kolom 'type_tb' ke string sesuai mapping: 1.0 -> "SO", 2.0 -> "RO"
+                    df["type_tb_str"] = df["type_tb"].apply(lambda x: "SO" if x == 1.0 else "RO" if x == 2.0 else str(x))
+                    
+                    # Hitung jumlah pasien per tipe TB
+                    count_tipe = df["type_tb_str"].value_counts().reset_index()
+                    count_tipe.columns = ["Tipe TB", "Jumlah Pasien"]
+                    
+                    # Buat bar chart menggunakan Plotly Express
+                    fig = px.bar(
+                        count_tipe,
+                        x="Tipe TB",
+                        y="Jumlah Pasien",
+                        text="Jumlah Pasien",
+                        title="Jumlah Pasien Berdasarkan Tipe TB (SO & RO)",
+                        labels={"Tipe TB": "Tipe TB", "Jumlah Pasien": "Jumlah Pasien"},
+                        color="Jumlah Pasien",
+                        color_continuous_scale="Viridis"
+                    )
+                    fig.update_traces(textposition="outside")
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("Kolom 'type_tb' tidak ditemukan di data.")
+
 
 
             st.sidebar.success("Visualisasi selesai ditampilkan!")
