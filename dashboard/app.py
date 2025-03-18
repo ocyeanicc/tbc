@@ -873,6 +873,22 @@ elif nav == "📈 Visualisasi":
                 
                 st.dataframe(crosstab_counts)
 
+                # **Visualisasi dengan Plotly Express**
+                if "Tidak Layak" in crosstab_counts.columns:
+                    fig = px.bar(
+                        crosstab_counts.reset_index(),
+                        x="pekerjaan",
+                        y="% Tidak Layak",
+                        title="Persentase Rumah Tidak Layak per Pekerjaan",
+                        labels={"pekerjaan": "Pekerjaan", "% Tidak Layak": "Persentase Rumah Tidak Layak (%)"},
+                        text="% Tidak Layak",
+                        color="% Tidak Layak",
+                        color_continuous_scale="Oranges"
+                    )
+                    fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
+                    fig.update_layout(xaxis_tickangle=-45)  # Rotasi label sumbu x untuk keterbacaan lebih baik
+                    st.plotly_chart(fig)
+                    
 
             elif pilihan == "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan":
                 st.subheader("🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan")
@@ -902,6 +918,22 @@ elif nav == "📈 Visualisasi":
                 # 5) Tampilkan di Streamlit
                 st.dataframe(crosstab_perilaku)
 
+                # **Visualisasi dengan Plotly (Hanya % Tidak Baik)**
+                fig = px.bar(
+                    crosstab_perilaku.reset_index(),
+                    x="pekerjaan",
+                    y="% Tidak Baik",
+                    title="Persentase Perilaku Tidak Baik per Pekerjaan",
+                    labels={"pekerjaan": "Pekerjaan", "% Tidak Baik": "Persentase Perilaku Tidak Baik (%)"},
+                    text="% Tidak Baik",
+                    color="% Tidak Baik",
+                    color_continuous_scale="Reds"
+                )
+
+                fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
+                fig.update_layout(xaxis_tickangle=-45)  # Rotasi label sumbu X agar lebih rapi
+                st.plotly_chart(fig)
+
             
             elif pilihan == "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan":
                 st.subheader("🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan")
@@ -930,6 +962,23 @@ elif nav == "📈 Visualisasi":
                 
                 # 5) Tampilkan di Streamlit
                 st.dataframe(crosstab_sanitasi)
+
+                # **Visualisasi dengan Plotly Express**
+                if "Tidak Layak" in crosstab_sanitasi.columns:
+                    fig = px.bar(
+                        crosstab_sanitasi.reset_index(),
+                        x="pekerjaan",
+                        y="% Tidak Layak",
+                        title="Persentase Sanitasi Tidak Layak per Pekerjaan",
+                        labels={"pekerjaan": "Pekerjaan", "% Tidak Layak": "Persentase Sanitasi Tidak Layak (%)"},
+                        text="% Tidak Layak",
+                        color="% Tidak Layak",
+                        color_continuous_scale="Blues"
+                    )
+                    fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
+                    fig.update_layout(xaxis_tickangle=-45)  # Rotasi label sumbu X untuk keterbacaan lebih baik
+                    st.plotly_chart(fig)
+                    
 
             elif pilihan == "📊 Jumlah Pasien Berdasarkan Tipe TB":
                 st.subheader("📊 Jumlah Pasien Berdasarkan Tipe TB")
