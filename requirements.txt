@@ -8,4 +8,4 @@ kaleido==0.2.1
 mysql-connector-python==8.0.33
 geopy==2.2.0
 folium==0.12.1
-streamlit-folium==0.9.1
+streamlit-folium==0.24.0
