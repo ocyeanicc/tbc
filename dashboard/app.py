@@ -911,8 +911,8 @@ elif nav == "📈 Visualisasi":
                 # 4) (Opsional) Tambahkan kolom Total dan persentase "Tidak Layak"
                 crosstab_perilaku["Total"] = crosstab_perilaku.sum(axis=1)
                 if "Tidak Layak" in crosstab_perilaku.columns:
-                    crosstab_perilaku["% Tidak Layak"] = (
-                        crosstab_perilaku["Tidak Layak"] / crosstab_perilaku["Total"]
+                    crosstab_perilaku["% Tidak Baik"] = (
+                        crosstab_perilaku["Tidak Baik"] / crosstab_perilaku["Total"]
                     ) * 100
                 
                 # 5) Tampilkan di Streamlit
