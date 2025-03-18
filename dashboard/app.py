@@ -10,7 +10,6 @@ from PIL import Image
 import io
 import mysql.connector
 import os
-from db_connection import get_connection
 
 
 # Atur tema Seaborn
