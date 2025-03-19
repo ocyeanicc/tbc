@@ -988,11 +988,6 @@ elif nav == "📈 Visualisasi":
                 if "type_tb" not in df.columns:
                     st.warning("Kolom 'type_tb' tidak ditemukan di data.")
                 else:
-                    # Debug: Tampilkan nilai unik dan value counts di kolom type_tb
-                    st.write("Nilai unik di kolom 'type_tb':", df["type_tb"].unique())
-                    st.write("Value counts kolom 'type_tb':")
-                    st.write(df["type_tb"].value_counts(dropna=False))
-                    
                     # Fungsi mapping yang fleksibel untuk mengonversi nilai ke "SO", "RO", atau "Lainnya"
                     def map_tb_type(x):
                         x_str = str(x).strip().lower()  # ubah ke string, hapus spasi, dan lowercase
@@ -1005,9 +1000,6 @@ elif nav == "📈 Visualisasi":
             
                     # Terapkan mapping ke kolom 'type_tb' dan simpan hasilnya di kolom baru "type_tb_str"
                     df["type_tb_str"] = df["type_tb"].apply(map_tb_type)
-                    
-                    # **TANPA** filtering, sehingga "SO", "RO", dan "Lainnya" akan muncul
-                    # df_filtered = df[df["type_tb_str"].isin(["SO", "RO"])]  <-- Dihilangkan
             
                     # Hitung jumlah pasien per tipe TB (SO, RO, dan Lainnya)
                     count_tipe = df["type_tb_str"].value_counts().reset_index()
