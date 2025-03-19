@@ -1030,24 +1030,23 @@ elif nav == "📈 Visualisasi":
                     df_kelurahan = df.groupby("kelurahan")["pasien"].count().reset_index()
                     df_kelurahan.columns = ["kelurahan", "jumlah_pasien"]
             
-                    # 2) Ambil daftar unik kelurahan dari data
+                    # 2) Ambil daftar unik kelurahan
                     unique_kelurahan = df_kelurahan["kelurahan"].unique()
             
-                    # 3) Inisialisasi geolocator dengan timeout yang lebih tinggi dan RateLimiter
+                    # 3) Geocoding menggunakan geopy (Nominatim + RateLimiter)
                     from geopy.geocoders import Nominatim
                     from geopy.extra.rate_limiter import RateLimiter
                     geolocator = Nominatim(user_agent="streamlit_app", timeout=10)
                     geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=3, error_wait_seconds=2)
             
-                    # 4) Lakukan geocoding untuk tiap kelurahan
+                    # 4) Melakukan geocoding untuk tiap kelurahan
                     kelurahan_coords = {}
                     for k in unique_kelurahan:
-                        # Jika Anda ingin melewati kelurahan tertentu:
                         if k in ["Luar Kota", "Pindrikan Kidul"]:
                             st.info(f"Melewati geocoding untuk {k}.")
                             continue
                         try:
-                            # Kita gunakan query yang lebih spesifik
+                            # Query lebih spesifik agar lebih mudah dikenali
                             location = geocode(f"Kelurahan {k}, Semarang, Indonesia")
                             if location:
                                 kelurahan_coords[k] = (location.latitude, location.longitude)
@@ -1055,10 +1054,11 @@ elif nav == "📈 Visualisasi":
                                 st.info(f"Koordinat untuk {k} tidak ditemukan.")
                         except Exception as e:
                             st.write(f"Tidak dapat menggeocode {k}: {e}")
-                    # 5) Jika Anda memiliki koordinat manual, masukkan di sini:
+            
+                    # 5) Tambahkan koordinat manual jika ada
                     manual_coords = {
-                        # "Pindrikan Kidul": (-7.000000, 110.400000),
-                        # "Luar Kota": (-7.050000, 110.500000)
+                        # "Luar Kota": (-7.050000, 110.500000),
+                        # "Pindrikan Kidul": (-7.000000, 110.400000)
                     }
                     kelurahan_coords.update(manual_coords)
             
@@ -1072,12 +1072,12 @@ elif nav == "📈 Visualisasi":
                     # 7) Gabungkan data frekuensi pasien dengan DataFrame koordinat
                     df_map = pd.merge(df_kelurahan, coords_df, on="kelurahan", how="inner")
             
-                    # 8) Buat peta dengan Folium (pusatkan di Semarang)
+                    # 8) Buat peta Folium, pusat di Semarang
                     import folium
                     from streamlit_folium import st_folium
                     m = folium.Map(location=[-7.005145, 110.438125], zoom_start=12)
             
-                    # 9) Buat daftar fitur GeoJSON dari df_map
+                    # 9) Membuat data GeoJSON dari df_map
                     features = []
                     for i, row in df_map.iterrows():
                         feature = {
@@ -1085,6 +1085,7 @@ elif nav == "📈 Visualisasi":
                             "properties": {
                                 "kelurahan": row["kelurahan"],
                                 "jumlah_pasien": row["jumlah_pasien"],
+                                # Popup bisa disimpan di properti "popup"
                                 "popup": f"<b>{row['kelurahan']}</b><br>Jumlah Pasien: {row['jumlah_pasien']}"
                             },
                             "geometry": {
@@ -1093,33 +1094,59 @@ elif nav == "📈 Visualisasi":
                             }
                         }
                         features.append(feature)
+            
                     geojson_data = {
                         "type": "FeatureCollection",
                         "features": features
                     }
             
-                    # 10) Tambahkan layer GeoJSON ke peta dengan popup
+                    # 10) Tambahkan layer GeoJSON ke peta
+                    from folium.plugins import Search
+            
+                    def style_function(feature):
+                        """Jika Anda ingin men-style polygon/line. Untuk point, kita gunakan point_to_layer."""
+                        return {}
+            
+                    def point_to_layer(feature, latlng):
+                        """Mengganti marker default menjadi CircleMarker."""
+                        return folium.CircleMarker(
+                            latlng,
+                            radius=6,
+                            color="blue",
+                            fill=True,
+                            fill_color="blue",
+                            fill_opacity=0.6
+                        )
+            
                     geojson_layer = folium.GeoJson(
                         geojson_data,
                         name="Kelurahan",
-                        popup=folium.GeoJsonPopup(
+                        style_function=style_function,
+                        point_to_layer=point_to_layer,
+                        # Tampilkan tooltip saat hover
+                        tooltip=folium.GeoJsonTooltip(
                             fields=["kelurahan", "jumlah_pasien"],
                             aliases=["Kelurahan", "Jumlah Pasien"],
                             localize=True
+                        ),
+                        # Tampilkan popup saat diklik
+                        popup=folium.GeoJsonPopup(
+                            fields=["popup"],  # Ambil isi dari feature["properties"]["popup"]
+                            labels=False
                         )
-                    ).add_to(m)
+                    )
+                    geojson_layer.add_to(m)
             
-                    # 11) Tambahkan kontrol Search untuk layer GeoJSON
-                    from folium.plugins import Search
+                    # 11) Tambahkan kontrol Search
                     search = Search(
                         layer=geojson_layer,
-                        search_label="kelurahan",
+                        search_label="kelurahan",  # Cari berdasarkan field "kelurahan"
                         placeholder="Cari Kelurahan",
-                        collapsed=False,
+                        collapsed=False
                     )
                     search.add_to(m)
             
-                    # 12) (Opsional) Jika Anda masih ingin menambahkan kontrol pan kustom, Anda dapat menambahkannya juga:
+                    # 12) (Opsional) Kontrol Pan kustom
                     from folium import MacroElement
                     from jinja2 import Template
             
@@ -1129,7 +1156,7 @@ elif nav == "📈 Visualisasi":
                             self._name = "PanControl"
                             self._template = Template("""
                                 {% macro script(this, kwargs) %}
-                                // Tambahkan kontrol pan kustom dengan tombol panah
+                                // Kontrol pan kustom
                                 L.Control.Pan = L.Control.extend({
                                     options: {
                                         position: 'topleft'
@@ -1175,6 +1202,8 @@ elif nav == "📈 Visualisasi":
                                 });
                                 {% endmacro %}
                             """)
+            
+                    # Tambahkan pan control
                     m.get_root().add_child(PanControl())
             
                     st.title("Peta Frekuensi Pasien per Kelurahan")
