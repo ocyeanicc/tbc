@@ -1033,26 +1033,25 @@ elif nav == "📈 Visualisasi":
                     # 2) Ambil daftar unik kelurahan
                     unique_kelurahan = df_kelurahan["kelurahan"].unique()
             
-                    # 3) Gunakan geopy untuk geocoding
+                    # 3) Inisialisasi geolocator dengan timeout yang lebih tinggi
                     from geopy.geocoders import Nominatim
+                    from geopy.extra.rate_limiter import RateLimiter
                     import time
             
-                    geolocator = Nominatim(user_agent="streamlit_app")
-                    
+                    geolocator = Nominatim(user_agent="streamlit_app", timeout=10)
+                    # Gunakan RateLimiter untuk mengatur jeda dan retry
+                    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=3, error_wait_seconds=2)
+            
                     def get_coordinates(kel):
-                        """
-                        Mengembalikan (latitude, longitude) untuk nama kelurahan 'kel'.
-                        Asumsi: Kelurahan berada di Semarang, Indonesia.
-                        """
                         try:
-                            location = geolocator.geocode(f"{kel}, Semarang, Indonesia")
+                            location = geocode(f"{kel}, Semarang, Indonesia")
                             if location:
                                 return (location.latitude, location.longitude)
                         except Exception as e:
                             st.error(f"Error geocoding {kel}: {e}")
                         return (None, None)
             
-                    # 4) Loop setiap kelurahan untuk dicari koordinatnya
+                    # 4) Lakukan geocoding untuk setiap kelurahan
                     kelurahan_coords = {}
                     for k in unique_kelurahan:
                         coords = get_coordinates(k)
@@ -1060,30 +1059,28 @@ elif nav == "📈 Visualisasi":
                             kelurahan_coords[k] = coords
                         else:
                             st.info(f"Koordinat untuk {k} tidak ditemukan.")
-                        # Tambahkan jeda untuk menghindari rate limit
-                        time.sleep(1)
+                        # jeda tambahan jika perlu (RateLimiter sudah mengatur jeda, jadi opsional)
+                        # time.sleep(1)
             
-                    # (Opsional) Tampilkan hasil geocode jika ingin debugging
+                    # (Opsional) Tampilkan hasil geocode untuk pengecekan
                     # st.write("Koordinat Kelurahan (hasil geocode):", kelurahan_coords)
             
-                    # 5) Ubah dictionary menjadi DataFrame
-                    import pandas as pd
+                    # 5) Ubah dictionary koordinat menjadi DataFrame
                     coords_df = pd.DataFrame(
                         [(k, v[0], v[1]) for k, v in kelurahan_coords.items()],
                         columns=["kelurahan", "lat", "lon"]
                     )
             
-                    # 6) Gabungkan df_kelurahan dengan DataFrame koordinat
+                    # 6) Gabungkan data frekuensi pasien dengan koordinat
                     df_map = pd.merge(df_kelurahan, coords_df, on="kelurahan", how="inner")
             
-                    # 7) Buat peta Folium
+                    # 7) Buat peta dengan Folium, pusatkan di Semarang
                     import folium
                     from streamlit_folium import st_folium
             
-                    # Pusat peta di Semarang (sesuaikan latitude & longitude)
                     m = folium.Map(location=[-7.005145, 110.438125], zoom_start=12)
             
-                    # 8) Tambahkan CircleMarker untuk setiap kelurahan
+                    # 8) Tambahkan CircleMarker untuk tiap kelurahan
                     for i, row in df_map.iterrows():
                         kel = row["kelurahan"]
                         lat = row["lat"]
@@ -1092,15 +1089,14 @@ elif nav == "📈 Visualisasi":
             
                         folium.CircleMarker(
                             location=[lat, lon],
-                            radius=5 + jml * 0.1,  # Sesuaikan ukuran lingkaran dengan jumlah pasien
+                            radius=5 + jml * 0.1,  # radius disesuaikan dengan jumlah pasien
                             color="blue",
                             fill=True,
                             fill_color="blue",
-                            fill_opacity=0.7,
+                            fill_opacity=0.6,
                             popup=f"<b>{kel}</b><br>Jumlah Pasien: {jml}"
                         ).add_to(m)
             
-                    # 9) Tampilkan peta di Streamlit
                     st.title("Peta Frekuensi Pasien per Kelurahan")
                     st_folium(m, width=700, height=500)
 
