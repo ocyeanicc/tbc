@@ -1042,7 +1042,7 @@ elif nav == "📈 Visualisasi":
                     # 4) Lakukan geocoding untuk tiap kelurahan
                     kelurahan_coords = {}
                     for k in unique_kelurahan:
-                        # Jika ingin melewati kelurahan tertentu yang bermasalah:
+                        # Jika Anda ingin melewati kelurahan tertentu:
                         if k in ["Luar Kota", "Pindrikan Kidul"]:
                             st.info(f"Melewati geocoding untuk {k}.")
                             continue
@@ -1055,9 +1055,9 @@ elif nav == "📈 Visualisasi":
                         except Exception as e:
                             st.write(f"Tidak dapat menggeocode {k}: {e}")
             
-                    # 5) Jika Anda memiliki koordinat manual untuk kelurahan yang dilewati, misalnya:
+                    # 5) Jika Anda memiliki koordinat manual:
                     manual_coords = {
-                        # Contoh: "Pindrikan Kidul": (-7.000000, 110.400000),
+                        # "Pindrikan Kidul": (-7.000000, 110.400000),
                         # "Luar Kota": (-7.050000, 110.500000)
                     }
                     kelurahan_coords.update(manual_coords)
@@ -1098,51 +1098,55 @@ elif nav == "📈 Visualisasi":
                     from jinja2 import Template
             
                     class PanControl(MacroElement):
-                        _template = Template("""
-                            {% macro script(this, kwargs) %}
-                            // Tambahkan kontrol pan kustom dengan tombol panah
-                            L.Control.Pan = L.Control.extend({
-                                options: {
-                                    position: 'topleft'
-                                },
-                                onAdd: function(map) {
-                                    var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
-                                    container.style.backgroundColor = 'white';
-                                    container.style.padding = '5px';
-                                    container.innerHTML = `
-                                        <a href="#" id="pan-up" style="display: block; text-align: center; font-size: 18px;">&#8593;</a>
-                                        <a href="#" id="pan-left" style="display: inline-block; width: 30px; text-align: center; font-size: 18px;">&#8592;</a>
-                                        <a href="#" id="pan-right" style="display: inline-block; width: 30px; text-align: center; font-size: 18px;">&#8594;</a>
-                                        <a href="#" id="pan-down" style="display: block; text-align: center; font-size: 18px;">&#8595;</a>
-                                    `;
-                                    L.DomEvent.disableClickPropagation(container);
-                                    return container;
-                                }
-                            });
-                            L.control.pan = function(opts) {
-                                return new L.Control.Pan(opts);
-                            };
-                            var map = {{this._parent.get_name()}};
-                            L.control.pan({ position: 'topleft' }).addTo(map);
-                            document.getElementById('pan-up').addEventListener('click', function(e) {
-                                e.preventDefault();
-                                map.panBy([0, -100]);
-                            });
-                            document.getElementById('pan-down').addEventListener('click', function(e) {
-                                e.preventDefault();
-                                map.panBy([0, 100]);
-                            });
-                            document.getElementById('pan-left').addEventListener('click', function(e) {
-                                e.preventDefault();
-                                map.panBy([-100, 0]);
-                            });
-                            document.getElementById('pan-right').addEventListener('click', function(e) {
-                                e.preventDefault();
-                                map.panBy([100, 0]);
-                            });
-                            {% endmacro %}
-                        """)
+                        def __init__(self):
+                            super().__init__()
+                            self._name = "PanControl"
+                            self._template = Template("""
+                                {% macro script(this, kwargs) %}
+                                // Tambahkan kontrol pan kustom dengan tombol panah
+                                L.Control.Pan = L.Control.extend({
+                                    options: {
+                                        position: 'topleft'
+                                    },
+                                    onAdd: function(map) {
+                                        var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+                                        container.style.backgroundColor = 'white';
+                                        container.style.padding = '5px';
+                                        container.innerHTML = `
+                                            <a href="#" id="pan-up" style="display: block; text-align: center; font-size: 18px;">&#8593;</a>
+                                            <a href="#" id="pan-left" style="display: inline-block; width: 30px; text-align: center; font-size: 18px;">&#8592;</a>
+                                            <a href="#" id="pan-right" style="display: inline-block; width: 30px; text-align: center; font-size: 18px;">&#8594;</a>
+                                            <a href="#" id="pan-down" style="display: block; text-align: center; font-size: 18px;">&#8595;</a>
+                                        `;
+                                        L.DomEvent.disableClickPropagation(container);
+                                        return container;
+                                    }
+                                });
+                                L.control.pan = function(opts) {
+                                    return new L.Control.Pan(opts);
+                                };
+                                var map = {{this._parent.get_name()}};
+                                L.control.pan({ position: 'topleft' }).addTo(map);
+                                document.getElementById('pan-up').addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    map.panBy([0, -100]);
+                                });
+                                document.getElementById('pan-down').addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    map.panBy([0, 100]);
+                                });
+                                document.getElementById('pan-left').addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    map.panBy([-100, 0]);
+                                });
+                                document.getElementById('pan-right').addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    map.panBy([100, 0]);
+                                });
+                                {% endmacro %}
+                            """)
             
+                    # Tambahkan pan control ke peta
                     m.get_root().add_child(PanControl())
             
                     st.title("Peta Frekuensi Pasien per Kelurahan")
