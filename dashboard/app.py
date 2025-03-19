@@ -1042,7 +1042,7 @@ elif nav == "📈 Visualisasi":
                     # 4) Lakukan geocoding untuk tiap kelurahan
                     kelurahan_coords = {}
                     for k in unique_kelurahan:
-                        # Jika Anda ingin melewati kelurahan tertentu:
+                        # Jika ingin melewati kelurahan tertentu:
                         if k in ["Luar Kota", "Pindrikan Kidul"]:
                             st.info(f"Melewati geocoding untuk {k}.")
                             continue
@@ -1057,7 +1057,7 @@ elif nav == "📈 Visualisasi":
             
                     # 5) Jika Anda memiliki koordinat manual:
                     manual_coords = {
-                        # "Pindrikan Kidul": (-7.000000, 110.400000),
+                        # Contoh: "Pindrikan Kidul": (-7.000000, 110.400000),
                         # "Luar Kota": (-7.050000, 110.500000)
                     }
                     kelurahan_coords.update(manual_coords)
@@ -1103,14 +1103,17 @@ elif nav == "📈 Visualisasi":
                             self._name = "PanControl"
                             self._template = Template("""
                                 {% macro script(this, kwargs) %}
-                                // Tambahkan kontrol pan kustom dengan tombol panah
+                                // Membuat kontrol pan kustom
                                 L.Control.Pan = L.Control.extend({
                                     options: {
                                         position: 'topleft'
                                     },
                                     onAdd: function(map) {
                                         var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+                                        // CSS custom untuk membuat ikon terlihat jelas
                                         container.style.backgroundColor = 'white';
+                                        container.style.border = '2px solid #ccc';
+                                        container.style.borderRadius = '4px';
                                         container.style.padding = '5px';
                                         container.innerHTML = `
                                             <a href="#" id="pan-up" style="display: block; text-align: center; font-size: 18px;">&#8593;</a>
@@ -1127,6 +1130,7 @@ elif nav == "📈 Visualisasi":
                                 };
                                 var map = {{this._parent.get_name()}};
                                 L.control.pan({ position: 'topleft' }).addTo(map);
+                                
                                 document.getElementById('pan-up').addEventListener('click', function(e) {
                                     e.preventDefault();
                                     map.panBy([0, -100]);
@@ -1146,11 +1150,9 @@ elif nav == "📈 Visualisasi":
                                 {% endmacro %}
                             """)
             
-                    # Tambahkan pan control ke peta
                     m.get_root().add_child(PanControl())
             
                     st.title("Peta Frekuensi Pasien per Kelurahan")
                     st_folium(m, width=700, height=500)
-
         
             st.sidebar.success("Visualisasi selesai ditampilkan!")
