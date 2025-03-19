@@ -1021,7 +1021,7 @@ elif nav == "📈 Visualisasi":
 
             elif pilihan == "🗺️ Peta Frekuensi Pasien per Kelurahan":
                 st.subheader("🗺️ Peta Frekuensi Pasien per Kelurahan")
-                
+
                 # Pastikan kolom 'kelurahan' ada di DataFrame
                 if "kelurahan" not in df.columns:
                     st.warning("Kolom 'kelurahan' tidak ditemukan di data.")
@@ -1030,66 +1030,65 @@ elif nav == "📈 Visualisasi":
                     df_kelurahan = df.groupby("kelurahan")["pasien"].count().reset_index()
                     df_kelurahan.columns = ["kelurahan", "jumlah_pasien"]
             
-                    # 2) Ambil daftar unik kelurahan
+                    # 2) Ambil daftar unik kelurahan dari data
                     unique_kelurahan = df_kelurahan["kelurahan"].unique()
             
                     # 3) Inisialisasi geolocator dengan timeout yang lebih tinggi
                     from geopy.geocoders import Nominatim
                     from geopy.extra.rate_limiter import RateLimiter
-                    import time
-            
                     geolocator = Nominatim(user_agent="streamlit_app", timeout=10)
-                    # Gunakan RateLimiter untuk mengatur jeda dan retry
                     geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=3, error_wait_seconds=2)
             
-                    def get_coordinates(kel):
-                        try:
-                            location = geocode(f"{kel}, Semarang, Indonesia")
-                            if location:
-                                return (location.latitude, location.longitude)
-                        except Exception as e:
-                            st.error(f"Error geocoding {kel}: {e}")
-                        return (None, None)
-            
-                    # 4) Lakukan geocoding untuk setiap kelurahan
+                    # 4) Lakukan geocoding untuk tiap kelurahan
                     kelurahan_coords = {}
                     for k in unique_kelurahan:
-                        coords = get_coordinates(k)
-                        if coords[0] is not None:
-                            kelurahan_coords[k] = coords
-                        else:
-                            st.info(f"Koordinat untuk {k} tidak ditemukan.")
-                        # jeda tambahan jika perlu (RateLimiter sudah mengatur jeda, jadi opsional)
-                        # time.sleep(1)
+                        # Jika Anda ingin melewati kelurahan tertentu yang bermasalah, misalnya:
+                        if k in ["Luar Kota", "Pindrikan Kidul"]:
+                            # Jika ingin melewati, gunakan 'continue'
+                            # atau jika Anda memiliki koordinat manual, Anda bisa menambahkannya ke manual_coords.
+                            st.info(f"Melewati geocoding untuk {k}.")
+                            continue
+                        try:
+                            location = geocode(f"{k}, Semarang, Indonesia")
+                            if location:
+                                kelurahan_coords[k] = (location.latitude, location.longitude)
+                            else:
+                                st.info(f"Koordinat untuk {k} tidak ditemukan.")
+                        except Exception as e:
+                            st.write(f"Tidak dapat menggeocode {k}: {e}")
+                        # RateLimiter sudah mengatur jeda, jadi tidak perlu time.sleep() lagi
             
-                    # (Opsional) Tampilkan hasil geocode untuk pengecekan
-                    # st.write("Koordinat Kelurahan (hasil geocode):", kelurahan_coords)
+                    # 5) Jika Anda memiliki koordinat manual untuk kelurahan yang dilewati, misalnya:
+                    manual_coords = {
+                        # Contoh: "Pindrikan Kidul": (-7.000000, 110.400000),
+                        # "Luar Kota": (-7.050000, 110.500000)
+                    }
+                    # Gabungkan manual_coords ke dictionary geocoding
+                    kelurahan_coords.update(manual_coords)
             
-                    # 5) Ubah dictionary koordinat menjadi DataFrame
+                    # 6) Ubah dictionary koordinat menjadi DataFrame
                     coords_df = pd.DataFrame(
                         [(k, v[0], v[1]) for k, v in kelurahan_coords.items()],
                         columns=["kelurahan", "lat", "lon"]
                     )
             
-                    # 6) Gabungkan data frekuensi pasien dengan koordinat
+                    # 7) Gabungkan data frekuensi pasien dengan DataFrame koordinat
                     df_map = pd.merge(df_kelurahan, coords_df, on="kelurahan", how="inner")
             
-                    # 7) Buat peta dengan Folium, pusatkan di Semarang
+                    # 8) Buat peta dengan Folium (pusatkan di Semarang)
                     import folium
                     from streamlit_folium import st_folium
-            
                     m = folium.Map(location=[-7.005145, 110.438125], zoom_start=12)
             
-                    # 8) Tambahkan CircleMarker untuk tiap kelurahan
+                    # 9) Tambahkan marker (CircleMarker) untuk tiap kelurahan
                     for i, row in df_map.iterrows():
                         kel = row["kelurahan"]
                         lat = row["lat"]
                         lon = row["lon"]
                         jml = row["jumlah_pasien"]
-            
                         folium.CircleMarker(
                             location=[lat, lon],
-                            radius=5 + jml * 0.1,  # radius disesuaikan dengan jumlah pasien
+                            radius=5 + jml * 0.1,  # Ukuran marker disesuaikan dengan jumlah pasien
                             color="blue",
                             fill=True,
                             fill_color="blue",
@@ -1100,5 +1099,5 @@ elif nav == "📈 Visualisasi":
                     st.title("Peta Frekuensi Pasien per Kelurahan")
                     st_folium(m, width=700, height=500)
 
-
+        
             st.sidebar.success("Visualisasi selesai ditampilkan!")
