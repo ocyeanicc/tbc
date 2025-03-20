@@ -403,8 +403,7 @@ elif nav == "📈 Visualisasi":
                 "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan",
                 "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan", 
                 "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan",
-                "📊 Jumlah Pasien Berdasarkan Tipe TB", 
-                "🗺️ Peta Frekuensi Pasien per Kelurahan"
+                "📊 Jumlah Pasien Berdasarkan Tipe TB"
             ]
             pilihan = st.selectbox("Pilih Visualisasi", visualisasi_list)
             
@@ -1019,194 +1018,202 @@ elif nav == "📈 Visualisasi":
                     fig.update_traces(textposition="outside")
                     st.plotly_chart(fig, use_container_width=True)
 
-            elif pilihan == "🗺️ Peta Frekuensi Pasien per Kelurahan":
-                st.subheader("🗺️ Peta Frekuensi Pasien per Kelurahan")
+# ================================
+# Peta
+# ================================
 
-                # Pastikan kolom 'kelurahan' ada di DataFrame
-                if "kelurahan" not in df.columns:
-                    st.warning("Kolom 'kelurahan' tidak ditemukan di data.")
-                else:
-                    # 1) Hitung jumlah pasien per kelurahan
-                    df_kelurahan = df.groupby("kelurahan")["pasien"].count().reset_index()
-                    df_kelurahan.columns = ["kelurahan", "jumlah_pasien"]
+elif nav == "🗺️ Peta":
+    st.title("🗺️ Peta Frekuensi Pasien per Kelurahan")
+
+    if st.session_state["data"].empty:
+        st.warning("Data belum tersedia. Silakan upload file CSV atau input data manual di halaman Home.")
+    else:
+        df = st.session_state["data"]
+
+        # Pastikan kolom 'kelurahan' ada di DataFrame
+        if "kelurahan" not in df.columns:
+            st.warning("Kolom 'kelurahan' tidak ditemukan di data.")
+        else:
+            # 1) Hitung jumlah pasien per kelurahan
+            df_kelurahan = df.groupby("kelurahan")["pasien"].count().reset_index()
+            df_kelurahan.columns = ["kelurahan", "jumlah_pasien"]
             
-                    # 2) Ambil daftar unik kelurahan
-                    unique_kelurahan = df_kelurahan["kelurahan"].unique()
+            # 2) Ambil daftar unik kelurahan
+            unique_kelurahan = df_kelurahan["kelurahan"].unique()
             
-                    # 3) Geocoding menggunakan geopy (Nominatim + RateLimiter)
-                    from geopy.geocoders import Nominatim
-                    from geopy.extra.rate_limiter import RateLimiter
-                    geolocator = Nominatim(user_agent="streamlit_app", timeout=10)
-                    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=3, error_wait_seconds=2)
+            # 3) Geocoding menggunakan geopy (Nominatim + RateLimiter)
+            from geopy.geocoders import Nominatim
+            from geopy.extra.rate_limiter import RateLimiter
+            geolocator = Nominatim(user_agent="streamlit_app", timeout=10)
+            geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=3, error_wait_seconds=2)
             
-                    # 4) Melakukan geocoding untuk tiap kelurahan
-                    kelurahan_coords = {}
-                    for k in unique_kelurahan:
-                        if k in ["Luar Kota", "Pindrikan Kidul"]:
-                            st.info(f"Melewati geocoding untuk {k}.")
-                            continue
-                        try:
-                            # Query lebih spesifik agar lebih mudah dikenali
-                            location = geocode(f"Kelurahan {k}, Semarang, Indonesia")
-                            if location:
-                                kelurahan_coords[k] = (location.latitude, location.longitude)
-                            else:
-                                st.info(f"Koordinat untuk {k} tidak ditemukan.")
-                        except Exception as e:
-                            st.write(f"Tidak dapat menggeocode {k}: {e}")
+            # 4) Melakukan geocoding untuk tiap kelurahan
+            kelurahan_coords = {}
+            for k in unique_kelurahan:
+                if k in ["Luar Kota", "Pindrikan Kidul"]:
+                    st.info(f"Melewati geocoding untuk {k}.")
+                    continue
+                try:
+                    # Query lebih spesifik agar lebih mudah dikenali
+                    location = geocode(f"Kelurahan {k}, Semarang, Indonesia")
+                    if location:
+                        kelurahan_coords[k] = (location.latitude, location.longitude)
+                    else:
+                        st.info(f"Koordinat untuk {k} tidak ditemukan.")
+                except Exception as e:
+                    st.write(f"Tidak dapat menggeocode {k}: {e}")
             
-                    # 5) Tambahkan koordinat manual jika ada
-                    manual_coords = {
-                        # "Luar Kota": (-7.050000, 110.500000),
-                        # "Pindrikan Kidul": (-7.000000, 110.400000)
+            # 5) Tambahkan koordinat manual jika ada
+            manual_coords = {
+                # "Luar Kota": (-7.050000, 110.500000),
+                # "Pindrikan Kidul": (-7.000000, 110.400000)
+            }
+            kelurahan_coords.update(manual_coords)
+            
+            # 6) Ubah dictionary koordinat menjadi DataFrame
+            coords_df = pd.DataFrame(
+                [(k, v[0], v[1]) for k, v in kelurahan_coords.items()],
+                columns=["kelurahan", "lat", "lon"]
+            )
+            
+            # 7) Gabungkan data frekuensi pasien dengan DataFrame koordinat
+            df_map = pd.merge(df_kelurahan, coords_df, on="kelurahan", how="inner")
+            
+            # 8) Buat peta Folium, pusat di Semarang
+            import folium
+            from streamlit_folium import st_folium
+            m = folium.Map(location=[-7.005145, 110.438125], zoom_start=12)
+            
+            # 9) Membuat data GeoJSON dari df_map
+            features = []
+            for i, row in df_map.iterrows():
+                feature = {
+                    "type": "Feature",
+                    "properties": {
+                        "kelurahan": row["kelurahan"],
+                        "jumlah_pasien": row["jumlah_pasien"],
+                        # Popup bisa disimpan di properti "popup"
+                        "popup": f"<b>{row['kelurahan']}</b><br>Jumlah Pasien: {row['jumlah_pasien']}"
+                    },
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [row["lon"], row["lat"]]
                     }
-                    kelurahan_coords.update(manual_coords)
+                }
+                features.append(feature)
             
-                    # 6) Ubah dictionary koordinat menjadi DataFrame
-                    import pandas as pd
-                    coords_df = pd.DataFrame(
-                        [(k, v[0], v[1]) for k, v in kelurahan_coords.items()],
-                        columns=["kelurahan", "lat", "lon"]
-                    )
+            geojson_data = {
+                "type": "FeatureCollection",
+                "features": features
+            }
             
-                    # 7) Gabungkan data frekuensi pasien dengan DataFrame koordinat
-                    df_map = pd.merge(df_kelurahan, coords_df, on="kelurahan", how="inner")
+            # 10) Tambahkan layer GeoJSON ke peta
+            from folium.plugins import Search
             
-                    # 8) Buat peta Folium, pusat di Semarang
-                    import folium
-                    from streamlit_folium import st_folium
-                    m = folium.Map(location=[-7.005145, 110.438125], zoom_start=12)
+            def style_function(feature):
+                """Jika Anda ingin men-style polygon/line. 
+                   Untuk point, kita gunakan point_to_layer."""
+                return {}
             
-                    # 9) Membuat data GeoJSON dari df_map
-                    features = []
-                    for i, row in df_map.iterrows():
-                        feature = {
-                            "type": "Feature",
-                            "properties": {
-                                "kelurahan": row["kelurahan"],
-                                "jumlah_pasien": row["jumlah_pasien"],
-                                # Popup bisa disimpan di properti "popup"
-                                "popup": f"<b>{row['kelurahan']}</b><br>Jumlah Pasien: {row['jumlah_pasien']}"
+            def point_to_layer(feature, latlng):
+                """Mengganti marker default menjadi CircleMarker."""
+                return folium.CircleMarker(
+                    latlng,
+                    radius=6,
+                    color="blue",
+                    fill=True,
+                    fill_color="blue",
+                    fill_opacity=0.6
+                )
+            
+            geojson_layer = folium.GeoJson(
+                geojson_data,
+                name="Kelurahan",
+                style_function=style_function,
+                point_to_layer=point_to_layer,
+                # Tampilkan tooltip saat hover
+                tooltip=folium.GeoJsonTooltip(
+                    fields=["kelurahan", "jumlah_pasien"],
+                    aliases=["Kelurahan", "Jumlah Pasien"],
+                    localize=True
+                ),
+                # Tampilkan popup saat diklik
+                popup=folium.GeoJsonPopup(
+                    fields=["popup"],  # Ambil isi dari feature["properties"]["popup"]
+                    labels=False
+                )
+            )
+            geojson_layer.add_to(m)
+            
+            # 11) Tambahkan kontrol Search
+            search = Search(
+                layer=geojson_layer,
+                search_label="kelurahan",  # Cari berdasarkan field "kelurahan"
+                placeholder="Cari Kelurahan",
+                collapsed=False
+            )
+            search.add_to(m)
+            
+            # 12) (Opsional) Kontrol Pan kustom
+            from folium import MacroElement
+            from jinja2 import Template
+            
+            class PanControl(MacroElement):
+                def __init__(self):
+                    super().__init__()
+                    self._name = "PanControl"
+                    self._template = Template("""
+                        {% macro script(this, kwargs) %}
+                        // Kontrol pan kustom
+                        L.Control.Pan = L.Control.extend({
+                            options: {
+                                position: 'topleft'
                             },
-                            "geometry": {
-                                "type": "Point",
-                                "coordinates": [row["lon"], row["lat"]]
+                            onAdd: function(map) {
+                                var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+                                container.style.backgroundColor = 'rgba(255,255,255,0.8)';
+                                container.style.border = '2px solid #ccc';
+                                container.style.borderRadius = '4px';
+                                container.style.padding = '5px';
+                                container.style.zIndex = '1000';
+                                container.innerHTML = `
+                                    <a href="#" id="pan-up" style="display: block; text-align: center; font-size: 20px;">&#8593;</a>
+                                    <a href="#" id="pan-left" style="display: inline-block; width: 30px; text-align: center; font-size: 20px;">&#8592;</a>
+                                    <a href="#" id="pan-right" style="display: inline-block; width: 30px; text-align: center; font-size: 20px;">&#8594;</a>
+                                    <a href="#" id="pan-down" style="display: block; text-align: center; font-size: 20px;">&#8595;</a>
+                                `;
+                                L.DomEvent.disableClickPropagation(container);
+                                return container;
                             }
-                        }
-                        features.append(feature)
+                        });
+                        L.control.pan = function(opts) {
+                            return new L.Control.Pan(opts);
+                        };
+                        var map = {{this._parent.get_name()}};
+                        L.control.pan({ position: 'topleft' }).addTo(map);
+                        
+                        document.getElementById('pan-up').addEventListener('click', function(e) {
+                            e.preventDefault();
+                            map.panBy([0, -100]);
+                        });
+                        document.getElementById('pan-down').addEventListener('click', function(e) {
+                            e.preventDefault();
+                            map.panBy([0, 100]);
+                        });
+                        document.getElementById('pan-left').addEventListener('click', function(e) {
+                            e.preventDefault();
+                            map.panBy([-100, 0]);
+                        });
+                        document.getElementById('pan-right').addEventListener('click', function(e) {
+                            e.preventDefault();
+                            map.panBy([100, 0]);
+                        });
+                        {% endmacro %}
+                    """)
             
-                    geojson_data = {
-                        "type": "FeatureCollection",
-                        "features": features
-                    }
+            m.get_root().add_child(PanControl())
             
-                    # 10) Tambahkan layer GeoJSON ke peta
-                    from folium.plugins import Search
-            
-                    def style_function(feature):
-                        """Jika Anda ingin men-style polygon/line. Untuk point, kita gunakan point_to_layer."""
-                        return {}
-            
-                    def point_to_layer(feature, latlng):
-                        """Mengganti marker default menjadi CircleMarker."""
-                        return folium.CircleMarker(
-                            latlng,
-                            radius=6,
-                            color="blue",
-                            fill=True,
-                            fill_color="blue",
-                            fill_opacity=0.6
-                        )
-            
-                    geojson_layer = folium.GeoJson(
-                        geojson_data,
-                        name="Kelurahan",
-                        style_function=style_function,
-                        point_to_layer=point_to_layer,
-                        # Tampilkan tooltip saat hover
-                        tooltip=folium.GeoJsonTooltip(
-                            fields=["kelurahan", "jumlah_pasien"],
-                            aliases=["Kelurahan", "Jumlah Pasien"],
-                            localize=True
-                        ),
-                        # Tampilkan popup saat diklik
-                        popup=folium.GeoJsonPopup(
-                            fields=["popup"],  # Ambil isi dari feature["properties"]["popup"]
-                            labels=False
-                        )
-                    )
-                    geojson_layer.add_to(m)
-            
-                    # 11) Tambahkan kontrol Search
-                    search = Search(
-                        layer=geojson_layer,
-                        search_label="kelurahan",  # Cari berdasarkan field "kelurahan"
-                        placeholder="Cari Kelurahan",
-                        collapsed=False
-                    )
-                    search.add_to(m)
-            
-                    # 12) (Opsional) Kontrol Pan kustom
-                    from folium import MacroElement
-                    from jinja2 import Template
-            
-                    class PanControl(MacroElement):
-                        def __init__(self):
-                            super().__init__()
-                            self._name = "PanControl"
-                            self._template = Template("""
-                                {% macro script(this, kwargs) %}
-                                // Kontrol pan kustom
-                                L.Control.Pan = L.Control.extend({
-                                    options: {
-                                        position: 'topleft'
-                                    },
-                                    onAdd: function(map) {
-                                        var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
-                                        container.style.backgroundColor = 'rgba(255,255,255,0.8)';
-                                        container.style.border = '2px solid #ccc';
-                                        container.style.borderRadius = '4px';
-                                        container.style.padding = '5px';
-                                        container.style.zIndex = '1000';
-                                        container.innerHTML = `
-                                            <a href="#" id="pan-up" style="display: block; text-align: center; font-size: 20px;">&#8593;</a>
-                                            <a href="#" id="pan-left" style="display: inline-block; width: 30px; text-align: center; font-size: 20px;">&#8592;</a>
-                                            <a href="#" id="pan-right" style="display: inline-block; width: 30px; text-align: center; font-size: 20px;">&#8594;</a>
-                                            <a href="#" id="pan-down" style="display: block; text-align: center; font-size: 20px;">&#8595;</a>
-                                        `;
-                                        L.DomEvent.disableClickPropagation(container);
-                                        return container;
-                                    }
-                                });
-                                L.control.pan = function(opts) {
-                                    return new L.Control.Pan(opts);
-                                };
-                                var map = {{this._parent.get_name()}};
-                                L.control.pan({ position: 'topleft' }).addTo(map);
-                                
-                                document.getElementById('pan-up').addEventListener('click', function(e) {
-                                    e.preventDefault();
-                                    map.panBy([0, -100]);
-                                });
-                                document.getElementById('pan-down').addEventListener('click', function(e) {
-                                    e.preventDefault();
-                                    map.panBy([0, 100]);
-                                });
-                                document.getElementById('pan-left').addEventListener('click', function(e) {
-                                    e.preventDefault();
-                                    map.panBy([-100, 0]);
-                                });
-                                document.getElementById('pan-right').addEventListener('click', function(e) {
-                                    e.preventDefault();
-                                    map.panBy([100, 0]);
-                                });
-                                {% endmacro %}
-                            """)
-            
-                    # Tambahkan pan control
-                    m.get_root().add_child(PanControl())
-            
-                    st.title("Peta Frekuensi Pasien per Kelurahan")
-                    st_folium(m, width=700, height=500)
+            # Tampilkan peta ke Streamlit
+            st_folium(m, width=700, height=500)
         
             st.sidebar.success("Visualisasi selesai ditampilkan!")
