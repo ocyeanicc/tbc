@@ -1,34 +1,22 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from datetime import datetime
+from io import BytesIO
 import plotly.express as px
 import plotly.io as pio  
-import geopandas as gpd
-from streamlit_folium import folium_static
-from datetime import datetime
-from io import BytesIO, StringIO
+from PIL import Image
+import io
+from db_connector import get_connection, load_data_from_mysql
 import mysql.connector
 import csv
-from db_connector import get_connection, load_data_from_mysql
-import json
-from streamlit_folium import st_folium
-import folium 
-from folium.plugins import Search
-from sqlalchemy import create_engine
-from shapely.geometry import shape
-from streamlit_folium import st_folium
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-import time
+from io import StringIO
 
-#  Atur tema Seaborn
+# 2) Atur tema Seaborn
 sns.set_theme(style="whitegrid")
 
-st.set_page_config(layout="wide")
-
-# Inisialisasi session_state untuk menyimpan data CSV, data manual, dan data gabungan
+# 2) Inisialisasi session_state untuk menyimpan data CSV, data manual, dan data gabungan
 # --- Selalu muat data dari MySQL setiap kali aplikasi dijalankan ---
 # --- Inisialisasi session_state ---
 if "csv_data" not in st.session_state:
@@ -42,6 +30,32 @@ st.session_state["data"] = load_data_from_mysql()
 # Fungsi untuk menampilkan label kolom tanpa underscore
 def display_label(col_name: str) -> str:
     return " ".join(word.capitalize() for word in col_name.split("_"))
+
+def update_mysql_data(pasien, column, new_value):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        query = f"UPDATE tb_cases SET {column} = %s WHERE pasien = %s"
+        cursor.execute(query, (new_value, pasien))
+        conn.commit()
+    except Exception as e:
+        st.error(f"Error saat update: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+def delete_mysql_data(pasien):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        query = "DELETE FROM tb_cases WHERE pasien = %s"
+        cursor.execute(query, (pasien,))
+        conn.commit()
+    except Exception as e:
+        st.error(f"Error saat hapus data: {e}")
+    finally:
+        cursor.close()
+        conn.close()
 
 def insert_mysql_data(data):
     try:
@@ -57,9 +71,8 @@ def insert_mysql_data(data):
     finally:
         cursor.close()
         conn.close()
-        
-        
-# Tampilkan elemen di sidebar
+
+# 5) Tampilkan elemen di sidebar
 logo_url = "https://raw.githubusercontent.com/lizyyaaa/tbc/main/dashboard/download%20(1).png" 
 st.sidebar.image(logo_url, use_container_width=True)
 
@@ -73,7 +86,7 @@ st.sidebar.info("Silakan pilih halaman di bawah ini.")
 
 # 6) Navigasi menggunakan radio button di sidebar dengan emoji
 # Gunakan tiga opsi navigasi: Home, Data, dan Visualisasi
-nav = st.sidebar.radio("🔽 Pilih Halaman", ["🏠 Home", "📊 Data","📈 Visualisasi"])
+nav = st.sidebar.radio("🔽 Pilih Halaman", ["🏠 Home", "📈 Visualisasi"])
 # --- Global fields_order (pastikan konsisten) ---
 fields_order = [
     "puskesmas", "pasien", "age", "gender", "faskes", "city", "regency",
@@ -190,214 +203,11 @@ option_dict = {
     "memiliki_hewan_ternak": ['Tidak', 'Ya'],
     "kandang_hewan": []  # Kosong, gunakan text_input
 }
-
 # ================================
-# Halaman Home
+# Halaman Home: Input & Upload Data
 # ================================
 if nav == "🏠 Home":
-    st.title("🏠 Home")
-
-    # --------------------------------------------------
-    # 1. Koneksi ke Database menggunakan SQLAlchemy
-    # --------------------------------------------------
-    DB_URI = "mysql+mysqlconnector://root:@127.0.0.1/tb_analisistbc"  # Ganti sesuai kredensial Anda
-    engine = create_engine(DB_URI)
-
-
-    # --------------------------------------------------
-    # 2. Fungsi Memuat Data Pasien dari Database
-    # --------------------------------------------------
-    def load_data_from_mysql():
-        query = "SELECT * FROM tb_cases"  # Pastikan tabel memiliki kolom 'kelurahan' dan 'gender'
-        df = pd.read_sql(query, con=engine)
-        if "kelurahan" in df.columns:
-            df["kelurahan"] = df["kelurahan"].str.lower().str.strip()
-        if "gender" in df.columns:
-            df["gender"] = df["gender"].str.upper().str.strip()
-        return df
-
-
-    df_raw = load_data_from_mysql()
-    if df_raw.empty:
-        st.error("Data pasien tidak ditemukan di database.")
-        st.stop()
-    
-    df = load_data_from_mysql()
-    if df.empty:
-        st.error("Data pasien tidak ditemukan di database.")
-        st.stop()
-
-    # --------------------------------------------------
-    # 3. Hitung Total Pasien dan Breakdown Gender
-    # --------------------------------------------------
-    total_pasien = len(df)
-    jumlah_laki = len(df[df["gender"] == "L"]) if "gender" in df.columns else 0
-    jumlah_perempuan = len(df[df["gender"] == "P"]) if "gender" in df.columns else 0
-
-    
-    summary_html = f"""
-    <font size="6"><b>Jumlah Pasien</b></font><br><br>
-        <table width="100%" border="1" cellspacing="0" cellpadding="5" bgcolor="#F2F2F2">
-    <tr bgcolor="#333333">
-        <td align="center"><font color="white"><b>Total Pasien</b></font></td>
-        <td align="center"><font color="white"><b>Laki-laki</b></font></td>
-        <td align="center"><font color="white"><b>Perempuan</b></font></td>
-    </tr>
-    <tr>
-        <td align="center"><font color="purple">{total_pasien}</font></td>
-        <td align="center"><font color="blue">{jumlah_laki}</font></td>
-        <td align="center"><font color="red">{jumlah_perempuan}</font></td>
-    </tr>
-    </table>
-    """
-
-    st.markdown(summary_html, unsafe_allow_html=True)
-
-    # --------------------------------------------------
-    # 4. Fungsi Menghitung Jumlah Pasien per Kelurahan
-    # --------------------------------------------------
-    def hitung_jumlah_pasien(df):
-        df_count = df.groupby("kelurahan").size().reset_index(name="jumlah_pasien")
-        return df_count
-
-    df_pasien = hitung_jumlah_pasien(df)
-
-    # --------------------------------------------------
-    def load_geojson():
-        geojson_path = "semarang_kelurahan.geojson"  # Pastikan file ini ada
-        with open(geojson_path, "r", encoding="utf-8") as f:
-            geojson_data = json.load(f)
-        # Normalisasi properti "name" ke lowercase dan hilangkan spasi ekstra
-        for feature in geojson_data["features"]:
-            if "name" in feature["properties"]:
-                feature["properties"]["name"] = feature["properties"]["name"].lower().strip()
-        return geojson_data
-
-    geojson_data = load_geojson()
-
-    # --------------------------------------------------
-    # 2. Gabungkan Data Pasien ke GeoJSON (menggunakan properti "name")
-    # --------------------------------------------------
-    # Pastikan df_pasien sudah didefinisikan dengan kolom "kelurahan" dan "jumlah_pasien"
-    kelurahan_count = dict(zip(df_pasien["kelurahan"], df_pasien["jumlah_pasien"]))
-    for feature in geojson_data["features"]:
-        kel = feature["properties"].get("name", "")
-        feature["properties"]["jumlah_pasien"] = kelurahan_count.get(kel, 0)
-
-    # --------------------------------------------------
-    # 3. Buat Peta dengan Basemap Tanpa Label dan Custom Panes
-    # -------------------------------------------------
-    # Gunakan basemap tanpa label
-    m = folium.Map(
-        location=[-6.9667, 110.4167],
-        zoom_start=12,
-        tiles="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
-        attr="CartoDB Positron No Labels"
-    )
-    # Buat custom panes:
-    # - Pane "choropleth" untuk layer poligon (z-index rendah)
-    # - Pane "labels" untuk layer label (z-index tinggi)
-    m.add_child(folium.map.CustomPane("choropleth", z_index=400))
-    m.add_child(folium.map.CustomPane("labels", z_index=650))
-
-
-
-    # --------------------------------------------------
-    # 4. Tambahkan Layer Choropleth ke Pane "choropleth"
-    # --------------------------------------------------
-    choropleth = folium.Choropleth(
-        geo_data=geojson_data,
-        name="Choropleth",
-        data=df_pasien,
-        columns=["kelurahan", "jumlah_pasien"],
-        key_on="feature.properties.name",
-        fill_color="RdYlGn_r",
-        fill_opacity=0.7,
-        line_opacity=0.2,
-        legend_name="Jumlah Pasien TBC per Kelurahan"
-    ).add_to(m)
-    # Pastikan layer choropleth berada di pane "choropleth"
-    choropleth.geojson.options['pane'] = 'choropleth'
-
-    # --------------------------------------------------
-    # 5. Tambahkan Layer GeoJSON dengan Tooltip (untuk interaktivitas) ke Pane "choropleth"
-    # --------------------------------------------------
-    tooltip = folium.GeoJsonTooltip(
-        fields=["name", "jumlah_pasien"],
-        aliases=["Kelurahan:", "Jumlah Pasien:"],
-        localize=True
-    )
-    geojson_layer = folium.GeoJson(
-        geojson_data,
-        style_function=lambda feature: {
-            "fillColor": "transparent",
-            "color": "black",
-            "fillOpacity": 0,
-            "weight": 0.5
-        },
-        highlight_function=lambda feature: {
-            "fillColor": "#000000",
-            "color": "#000000",
-            "fillOpacity": 0.7,
-            "weight": 0.1
-        },
-        tooltip=tooltip,
-        pane="choropleth"
-    ).add_to(m)
-
-    # Tambahkan plugin pencarian untuk memudahkan mencari kelurahan
-    search = Search(
-        layer=geojson_layer,
-        search_label="name",
-        placeholder="Cari kelurahan...",
-        collapsed=False,
-    )
-    search.add_to(m)
-
-    # --------------------------------------------------
-    # 6. Tambahkan Layer Tile untuk Label ke Pane "labels"
-    # --------------------------------------------------
-    # Layer ini hanya berisi tulisan nama kelurahan dan akan selalu berada di atas layer choropleth
-    folium.TileLayer(
-        tiles="https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png",
-        attr="CartoDB",
-        name="Labels",
-        overlay=True,
-        control=False,
-        pane="labels"
-    ).add_to(m)
-
-    # --------------------------------------------------
-    # 7. Tampilkan Peta pada Streamlit
-    # --------------------------------------------------
-    st.write("### Peta Persebaran Pasien TBC")
-    st.markdown(
-        """
-        <style>
-        /* Menargetkan container streamlit-folium */
-        div.stFolium {
-            width: 900px !important;
-            height: 450px !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st_folium(m, width=900, height=450)
-
-    
-    # --------------------------------------------------
-    # 7. Tampilkan DataFrame Data Pasien di Bawah Peta
-    # --------------------------------------------------
-    st.write("### Data Pasien (Jumlah per Kelurahan)")
-    st.dataframe(df_pasien)
-
-# ================================
-# Halaman Data: Input & Upload Data
-# ================================
-if nav == "📊 Data":
-    st.title("📊 Data - Input & Upload Data")
+    st.title("🏠 Home - Input & Upload Data")
     st.markdown("### Upload file CSV dan masukkan data baru secara manual. Data yang diinput akan digabungkan dan ditampilkan.")
     
     # --- Bagian Upload CSV ---
@@ -463,127 +273,115 @@ if nav == "📊 Data":
         except Exception as e:
             st.error(f"Error membaca file: {e}")
     
-    # Pastikan "form_key" di session_state ada agar form dapat direfresh
-    if "form_key" not in st.session_state:
-        st.session_state["form_key"] = 0
-
     # Tampilkan data gabungan dari MySQL dan CSV (jika ada)
     st.subheader("📊 Data dari MySQL + CSV yang diunggah")
     st.dataframe(st.session_state["data"])
-
+    
     st.markdown("## Form Input Data Manual Tambahan")
 
-    # --- Form manual dengan key dinamis ---
-    with st.form(key=f"manual_form_{st.session_state['form_key']}"):
+    # --- Form manual selanjutnya ---
+    with st.form(key="manual_form"):
         input_manual = {}
         for col in fields_order:
             label = col.replace("_", " ").title()
-            # Gunakan key yang unik untuk tiap widget dengan menggabungkan form_key
-            widget_key = f"{col}_{st.session_state['form_key']}"
             if col == "age":
-                input_manual[col] = st.number_input(label, min_value=0, step=1, value=0, key=widget_key)
+                input_manual[col] = st.number_input(label, min_value=0, step=1, value=0)
             elif col in ["date_start", "tgl_kunjungan"]:
-                input_manual[col] = st.date_input(label, value=datetime.today(), key=widget_key)
+                input_manual[col] = st.date_input(label, value=datetime.today())
             elif col in option_dict:
                 options = option_dict[col]
                 if options:
-                    input_manual[col] = st.selectbox(label, options, key=widget_key)
+                    input_manual[col] = st.selectbox(label, options)
                 else:
-                    input_manual[col] = st.text_input(label, value="", key=widget_key)
+                    input_manual[col] = st.text_input(label, value="")
             else:
-                input_manual[col] = st.text_input(label, value="", key=widget_key)
+                input_manual[col] = st.text_input(label, value="")
         submitted_manual = st.form_submit_button("Submit Data Manual Tambahan")
-
+    
     if submitted_manual:
         df_manual = pd.DataFrame([input_manual])
-        # Konversi tanggal ke string
-        for col in df_manual.columns:
-            if "date" in col or "tgl" in col:
-                df_manual[col] = df_manual[col].astype(str)
+        if "date_start" in df_manual.columns:
+            df_manual["date_start"] = pd.to_datetime(df_manual["date_start"]).dt.strftime('%Y-%m-%d')
+        if "tgl_kunjungan" in df_manual.columns:
+            df_manual["tgl_kunjungan"] = pd.to_datetime(df_manual["tgl_kunjungan"]).dt.strftime('%Y-%m-%d')
+        
+        st.success("Data manual tambahan berhasil ditambahkan!")
+        st.dataframe(df_manual, use_container_width=True)
+        
+        # Simpan data manual langsung ke MySQL
         try:
             conn = get_connection()
-            if conn is not None:
+            if conn is None:
+                st.error("Koneksi ke database gagal!")
+            else:
                 cursor = conn.cursor()
-                # Cek apakah pasien sudah ada
-                pasien = df_manual["pasien"].values[0]
-                cursor.execute("SELECT COUNT(*) FROM tb_cases WHERE pasien = %s", (pasien,))
-                exists = cursor.fetchone()[0] > 0
-                if exists:
-                    st.warning(f"⚠ Pasien dengan ID {pasien} sudah ada di database. Data tidak disimpan.")
-                    # Tampilkan peringatan selama 5 detik tanpa reset form
-                    time.sleep(5)
-                else:
-                    columns = df_manual.columns.tolist()
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    insert_query = f"INSERT INTO tb_cases ({', '.join(columns)}) VALUES ({placeholders})"
-                    data_rows = [tuple(x) for x in df_manual.to_numpy()]
-                    cursor.executemany(insert_query, data_rows)
-                    conn.commit()
-                    st.success("✅ Data berhasil disimpan ke MySQL! Form akan di-reset...")
-                    # Reset input session_state dan naikkan form_key untuk reset form
-                    for col in fields_order:
-                        st.session_state[f"manual_{col}"] = 0 if col == "age" else "" if col not in ["date_start", "tgl_kunjungan"] else datetime.today()
-                    st.session_state["data"] = load_data_from_mysql()  # Update data
-                    st.session_state["form_key"] += 1
-                    time.sleep(5)
-                    st.rerun()
+                columns = [col for col in fields_order if col in df_manual.columns]
+                df_manual = df_manual[columns]
+                placeholders = ", ".join(["%s"] * len(df_manual.columns))
+                insert_query = f"INSERT INTO tb_cases ({', '.join(df_manual.columns)}) VALUES ({placeholders})"
+                data_rows = [tuple(x) for x in df_manual.to_numpy()]
+                cursor.executemany(insert_query, data_rows)
+                conn.commit()
+                st.success("Data manual berhasil disimpan ke MySQL!")
         except Exception as e:
             st.error(f"Terjadi error saat menyimpan ke MySQL: {e}")
         finally:
-            if 'cursor' in locals():
+            if 'cursor' in locals() and cursor is not None:
                 cursor.close()
             if conn is not None:
                 conn.close()
         
+        # Update session_state dengan memuat ulang data dari database
         st.info("Memuat ulang data dari database...")
         st.session_state["data"] = load_data_from_mysql()
-        st.success("✅ Data dari database telah diperbarui.")
+        st.success("Data dari database telah diperbarui.")
 
     
+if nav == "📋 Data":
+    st.title("📋 Data Pasien")
+
+    # Periksa apakah ada data pasien
+    if "data" not in st.session_state or st.session_state["data"].empty:
+        st.warning("Tidak ada data pasien tersedia.")
+    else:
+        # Pilih pasien yang ingin diedit atau dihapus
+        pasien_list = st.session_state["data"]["pasien"].unique().tolist()
+        
+        if pasien_list:
+            selected_pasien = st.selectbox("Pilih ID Pasien:", pasien_list, index=0, key="selected_pasien")
+
+            # Pastikan pasien masih ada dalam dataset
+            if selected_pasien in st.session_state["data"]["pasien"].values:
+                selected_data = st.session_state["data"][st.session_state["data"]["pasien"] == selected_pasien].iloc[0]
+
+                # Buat form edit data
+                with st.form("edit_form"):
+                    new_values = {}
+                    for field in fields_order:
+                        if field in option_dict:
+                            new_values[field] = st.selectbox(
+                                display_label(field),
+                                option_dict[field], 
+                                index=option_dict[field].index(str(selected_data[field])) if str(selected_data[field]) in option_dict[field] else 0,
+                                key=f"{field}_edit"
+                            )
+                        else:
+                            new_values[field] = st.text_input(display_label(field), value=str(selected_data[field]), key=f"{field}_input")
+
+                    # Tombol untuk simpan perubahan
+                    submit_button = st.form_submit_button("Simpan Perubahan")
+
+                    if submit_button:
+                        for column, value in new_values.items():
+                            update_mysql_data(selected_pasien, column, value)
+                        st.success(f"Data pasien {selected_pasien} berhasil diperbarui!")
+
+
 # ================================
 # Halaman Visualisasi
 # ================================
 if nav == "📈 Visualisasi":
     st.title("📈 Visualisasi Data")
-    
-    # Sub-kategori visualisasi
-    sub_menu = st.selectbox("Pilih Kategori", [
-        "Analisis Faktor Risiko",
-        "Statistik Pasien",
-        "Hubungan Faktor Risiko & Pasien"
-    ])
-
-    # Opsi visualisasi berdasarkan kategori
-    if sub_menu == "Analisis Faktor Risiko":
-        pilihan = st.selectbox("Pilih Visualisasi", [
-            "📊 Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak",
-            "🏠 Rumah Layak & Tidak Layak (Chart + Detail)",
-            "🚰 Sanitasi Layak & Tidak Layak (Chart + Detail)",
-            "🚩 Perilaku Baik & Tidak Sehat (Chart + Detail)"
-        ])
-        st.divider()  # **Menambahkan garis pemisah**
-    
-    elif sub_menu == "Statistik Pasien":
-        pilihan = st.selectbox("Pilih Visualisasi", [
-            "🩺 Jumlah Pasien per Puskesmas",
-            "📅 Tren Date Start Pasien",
-            "📊 Distribusi Usia",
-            "🟢 Status Gizi dan Imunisasi",
-            "🎯 Distribusi Pekerjaan"
-        ])
-        st.divider()  # **Menambahkan garis pemisah**
-    
-    elif sub_menu == "Hubungan Faktor Risiko & Pasien":
-        pilihan = st.selectbox("Pilih Visualisasi", [
-            "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan",
-            "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan",
-            "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan",
-            "🦠 Jumlah Kasus TBC Berdasarkan Type TB",
-            "🧮 Crosstab Kelurahan - Jumlah Kasus Tidak Layak"
-        ])
-        st.divider()  # **Menambahkan garis pemisah**
-
-    st.subheader(f" {pilihan}")
     if st.session_state["data"].empty:
         st.warning("Data belum tersedia. Silakan upload file CSV atau input data manual di halaman Home.")
     else:
@@ -598,27 +396,22 @@ if nav == "📈 Visualisasi":
         kolom_numerik = df.select_dtypes(include=['number']).columns
         kolom_kategori = df.select_dtypes(include=['object']).columns
         
-        def fill_mode_or_mean(series):
-            # Jika nama kolom adalah 'type_tb', biarkan tetap seperti itu
-            if series.name == 'type_tb':
-                return series
-
-            # Jika kolom bertipe numerik, gunakan mean yang dibulatkan jika ada NaN
-            if series.dtype in ['int64', 'float64']:
-                return series.fillna(round(series.mean()))
-
-            # Jika kolom bertipe kategori/objek, gunakan modus
-            return series.fillna(series.mode()[0] if not series.mode().empty else series)
-
-        # Terapkan fungsi ke semua kolom kategori
-        df.loc[:, kolom_kategori] = df.loc[:, kolom_kategori].apply(fill_mode_or_mean)
-
+        # Gunakan .loc untuk menghindari SettingWithCopyWarning
+        df.loc[:, kolom_kategori] = df.loc[:, kolom_kategori].apply(
+            lambda x: x.fillna(x.mode()[0]) if not x.mode().empty else x
+        )
+        df.loc[:, kolom_numerik] = df.loc[:, kolom_numerik].apply(
+            lambda col: col.fillna(int(round(col.mean()))) if not col.dropna().empty else col
+        )
         
         df = df.drop_duplicates()
         if "date_start" in df.columns:
             # Konversi kolom "date_start" ke datetime, kemudian format hanya tanggal (YYYY-MM-DD)
             df["date_start"] = pd.to_datetime(df["date_start"], errors="coerce").dt.strftime('%Y-%m-%d')
         
+        st.subheader("Data Setelah Preprocessing")
+        st.dataframe(df.head(20))
+
         
         # Definisi kategori untuk analisis skor
         kategori_rumah = [
@@ -731,313 +524,127 @@ if nav == "📈 Visualisasi":
             persentase_tidak_layak_sanitasi = (df_sanitasi[df_sanitasi["Label"] == "Tidak Layak"].shape[0] / df_sanitasi.shape[0]) * 100
             persentase_tidak_baik_perilaku = (df_perilaku[df_perilaku["Label"] == "Tidak Layak"].shape[0] / df_perilaku.shape[0]) * 100
 
+            st.markdown(
+                f"""
+                **Persentase Rumah Tidak Layak**: {persentase_tidak_layak_rumah:.2f}%  
+                **Persentase Sanitasi Tidak Layak**: {persentase_tidak_layak_sanitasi:.2f}%  
+                **Persentase Perilaku Tidak Baik**: {persentase_tidak_baik_perilaku:.2f}%  
+                """
+            )
+
+            # Mendefinisikan opsi visualisasi baru
+            visualisasi_list = [
+                "📊 Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak",
+                "📈 Kebiasaan CTPS",
+                "🐑 Memiliki Hewan Ternak",
+                "🏠 Rumah Layak & Tidak Layak (Chart + Detail)",
+                "🚰 Sanitasi Layak & Tidak Layak (Chart + Detail)",
+                "🚩 Perilaku Baik & Tidak Sehat (Chart + Detail)",
+                "🩺 Jumlah Pasien per Puskesmas",
+                "📅 Tren Date Start Pasien",
+                "📊 Distribusi Usia",
+                "🟢 Status Gizi dan Imunisasi",
+                "🎯 Distribusi Pekerjaan",
+                "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan",
+                "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan",
+                "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan", 
+                "📊 Jumlah Pasien Berdasarkan Tipe TB", 
+                "🗺️ Peta Frekuensi Pasien per Kelurahan"
+            ]
+            pilihan = st.selectbox("Pilih Visualisasi", visualisasi_list)
             
             # Visualisasi berdasarkan pilihan
             if pilihan == "📊 Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak":
+                st.subheader("📊 Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak")
             
-                # Total data tiap kategori (misalnya, jumlah data yang masuk di masing-masing DataFrame)
-                total_rumah = df_rumah.shape[0]
-                total_sanitasi = df_sanitasi.shape[0]
-                total_perilaku = df_perilaku.shape[0]
-
-                count_rumah_tidak_layak = df_rumah[df_rumah["Label"] == "Tidak Layak"].shape[0]
-                count_sanitasi_tidak_layak = df_sanitasi[df_sanitasi["Label"] == "Tidak Layak"].shape[0]
-                count_perilaku_tidak_baik = df_perilaku[df_perilaku["Label"] == "Tidak Layak"].shape[0]
-
-                # --- Membuat Grafik Bar ---
-                # Daftar kategori, persentase, dan count
                 kategori_overall = ["Rumah Tidak Layak", "Sanitasi Tidak Layak", "Perilaku Tidak Baik"]
                 persentase_overall = [persentase_tidak_layak_rumah, persentase_tidak_layak_sanitasi, persentase_tidak_baik_perilaku]
-                counts_overall = [count_rumah_tidak_layak, count_sanitasi_tidak_layak, count_perilaku_tidak_baik]
-
-                # Sorting berdasarkan persentase tertinggi (descending)
+            
+                # Sorting berdasarkan persentase tertinggi
                 sorted_idx = sorted(range(len(persentase_overall)), key=lambda i: persentase_overall[i], reverse=True)
                 kategori_overall = [kategori_overall[i] for i in sorted_idx]
                 persentase_overall = [persentase_overall[i] for i in sorted_idx]
-                counts_overall = [counts_overall[i] for i in sorted_idx]
-
-                # Buat grafik bar dengan Plotly Express
-                import plotly.express as px
+            
+                # Membuat grafik dengan Plotly
                 fig = px.bar(
                     x=kategori_overall,
                     y=persentase_overall,
-                    text=[f"{p:.2f}% ({c} rumah)" for p, c in zip(persentase_overall, counts_overall)],
+                    text=[f"{x:.2f}%" for x in persentase_overall],
                     labels={"x": "Kategori", "y": "Persentase (%)"},
-                    title="Persentase dan Jumlah Rumah, Sanitasi, dan Perilaku Tidak Layak",
+                    title="Persentase Rumah, Sanitasi, dan Perilaku Tidak Layak",
                     color=kategori_overall
                 )
-
-                fig.update_traces(texttemplate='%{text}', textposition='outside', cliponaxis=False)
-                fig.update_layout(xaxis_tickangle=-45, margin=dict(t=80))
-                # Tampilkan grafik pada Streamlit
-                st.plotly_chart(fig, use_container_width=True)
-                    
-            elif pilihan == "🧮 Crosstab Kelurahan - Jumlah Kasus Tidak Layak":
-                
-                # Normalisasi nama kolom menjadi huruf kecil untuk konsistensi
-                df.columns = df.columns.str.lower()
-                df_rumah.columns = df_rumah.columns.str.lower()
-                df_sanitasi.columns = df_sanitasi.columns.str.lower()
-                df_perilaku.columns = df_perilaku.columns.str.lower()
-
-                # Tambahkan kolom 'kelurahan' ke masing-masing dataframe sub berdasarkan index
-                try:
-                    df_rumah = df_rumah.copy()
-                    df_sanitasi = df_sanitasi.copy()
-                    df_perilaku = df_perilaku.copy()
-                
-                    df_rumah["kelurahan"] = df.loc[df_rumah.index, "kelurahan"].values
-                    df_sanitasi["kelurahan"] = df.loc[df_sanitasi.index, "kelurahan"].values
-                    df_perilaku["kelurahan"] = df.loc[df_perilaku.index, "kelurahan"].values
-                except Exception as e:
-                    st.error(f"Error saat menambahkan kolom kelurahan: {e}")
-
-                # Pastikan nilai di kolom "label" sudah konsisten, misalnya dengan menghapus spasi dan mengubah ke huruf kecil
-                df_rumah["label"] = df_rumah["label"].str.strip().str.lower()
-                df_sanitasi["label"] = df_sanitasi["label"].str.strip().str.lower()
-                df_perilaku["label"] = df_perilaku["label"].str.strip().str.lower()
-
-                # Filter baris dengan label "tidak layak"
-                df_rumah_ntl = df_rumah[df_rumah["label"] == "tidak layak"]
-                df_sanitasi_ntl = df_sanitasi[df_sanitasi["label"] == "tidak layak"]
-                df_perilaku_ntl = df_perilaku[df_perilaku["label"] == "tidak layak"]
-
-                # Grouping berdasarkan 'kelurahan' untuk masing-masing kategori
-                rumah_group = df_rumah_ntl.groupby("kelurahan").size().reset_index(name="Rumah Tidak Layak")
-                sanitasi_group = df_sanitasi_ntl.groupby("kelurahan").size().reset_index(name="Sanitasi Tidak Layak")
-                perilaku_group = df_perilaku_ntl.groupby("kelurahan").size().reset_index(name="Perilaku Tidak Baik")
-
-                # Gabungkan hasil grouping berdasarkan kolom 'kelurahan'
-                crosstab_kelurahan = (
-                    rumah_group
-                    .merge(sanitasi_group, on="kelurahan", how="outer")
-                    .merge(perilaku_group, on="kelurahan", how="outer")
-                )
-
-                # Isi nilai NaN dengan 0 (jika ada kelurahan yang tidak muncul di salah satu kategori)
-                crosstab_kelurahan.fillna(0, inplace=True)
-
-                # Ubah tipe data kolom jumlah ke integer
-                crosstab_kelurahan["Rumah Tidak Layak"] = crosstab_kelurahan["Rumah Tidak Layak"].astype(int)
-                crosstab_kelurahan["Sanitasi Tidak Layak"] = crosstab_kelurahan["Sanitasi Tidak Layak"].astype(int)
-                crosstab_kelurahan["Perilaku Tidak Baik"] = crosstab_kelurahan["Perilaku Tidak Baik"].astype(int)
-
-                # Tambahkan kolom "Total" untuk memudahkan analisis
-                crosstab_kelurahan["Total"] = (
-                    crosstab_kelurahan["Rumah Tidak Layak"]
-                    + crosstab_kelurahan["Sanitasi Tidak Layak"]
-                    + crosstab_kelurahan["Perilaku Tidak Baik"]
-                )
-
-                # Urutkan berdasarkan Total (dari terbesar ke terkecil)
-                crosstab_kelurahan = crosstab_kelurahan.sort_values(by="Total", ascending=False)
-
-                # Tampilkan tabel crosstab
-                df_display = crosstab_kelurahan.reset_index(drop=True)
-                df_display = df_display[["kelurahan", "Rumah Tidak Layak", "Sanitasi Tidak Layak", "Perilaku Tidak Baik", "Total"]]
-                st.dataframe(df_display)
-                             
-                fig = px.bar(
-                    crosstab_kelurahan,
-                    x="kelurahan",
-                    y="Total",
-                    title="Total Kasus Tidak Layak per Kelurahan",
-                    labels={"kelurahan": "Kelurahan", "Total": "Jumlah Kasus"},
-                    text="Total",                       # Menampilkan nilai di atas batang
-                    color="Total",                      # Pewarnaan batang berdasarkan nilai Total
-                    color_continuous_scale="OrRd"       # Skema warna (merah-oranye)
-                )
-
-                # Mengatur posisi teks agar di luar batang
-                fig.update_traces(textposition="outside", cliponaxis=False)
-
-                # Mengatur tampilan layout
-                fig.update_layout(
-                    xaxis_tickangle=-45,               # Memiringkan label sumbu X agar terbaca
-                    margin=dict(t=70, b=50),           # Menambahkan margin atas/bawah
-                    coloraxis_showscale=True           # Menampilkan color scale di sisi grafik (opsional)
-                )
-
-                st.plotly_chart(fig, use_container_width=True)
-
-
-            elif pilihan == "🦠 Jumlah Kasus TBC Berdasarkan Type TB":
-
-                ## Konversi kolom type_tb ke string agar bisa menyimpan teks dan angka
-                df["type_tb"] = df["type_tb"].astype(str)
-                
-                # Pastikan semua NaN diubah menjadi "None"
-                df["type_tb"] = df["type_tb"].astype(str).fillna("None")
-
-                # Pastikan semua nilai yang kosong benar-benar terisi
-                df.loc[df["type_tb"].str.strip() == "", "type_tb"] = "None"
-                df.loc[df["type_tb"].isin(["nan", "None"]), "type_tb"] = "None"
-                tb_counts = df["type_tb"].value_counts(dropna=False).reset_index()
-                tb_counts.columns = ["Type TB", "Jumlah"]
-                
-                # Ubah angka menjadi label teks yang lebih mudah dibaca
-                tb_counts["Type TB"] = tb_counts["Type TB"].replace({"1.0": "TB SO", "2.0": "TB RO"})
-                
-                # **Pastikan "None" tetap ada dalam data**
-                if "None" not in tb_counts["Type TB"].values:
-                    tb_counts = pd.concat([tb_counts, pd.DataFrame([["None", 0]], columns=["Type TB", "Jumlah"])], ignore_index=True)
-                
-                # Sorting dari jumlah tertinggi
-                tb_counts = tb_counts.sort_values(by="Jumlah", ascending=False)
-
-                # **Cek apakah ada data setelah filtering**
-                if tb_counts.empty:
-                    st.warning("Tidak ada data Type TB yang tersedia.")
-                else:
-                    # Membuat grafik dengan Plotly
-                    fig = px.bar(
-                        tb_counts,
-                        x="Type TB",
-                        y="Jumlah",
-                        text="Jumlah",
-                        labels={"Type TB": "Tipe TB", "Jumlah": "Jumlah Kasus"},
-                        title="Jumlah Kasus TBC Berdasarkan Type TB",
-                        color="Type TB",
-                        color_discrete_sequence=px.colors.qualitative.Set2  # Warna kategori
-                    )
-
-                    # Menampilkan teks di atas batang
-                    fig.update_traces(texttemplate='%{text}', textposition='outside', cliponaxis=False)
-                    fig.update_layout(xaxis_tickangle=-45, margin=dict(t=80))  # Tambah ruang atas
-
-                    st.plotly_chart(fig, use_container_width=True)
-
+                fig.update_traces(textposition="outside")
             
-            elif pilihan == "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan":
-        
-                 # Ambil data 'pekerjaan' dari df untuk baris-baris yang terdapat di df_rumah (asumsi index cocok)
-                df_rumah_with_pekerjaan = df.loc[df_rumah.index, ["pekerjaan"]].copy()
-                
-                # Tambahkan kolom indikator rumah (Label: Layak/Tidak Layak)
-                df_rumah_with_pekerjaan["Rumah_Label"] = df_rumah["Label"].values
-
-                # Buat tabel crosstab untuk menghitung frekuensi tiap kategori pekerjaan berdasarkan label rumah
-                crosstab_counts = pd.crosstab(df_rumah_with_pekerjaan["pekerjaan"], df_rumah_with_pekerjaan["Rumah_Label"])
-
-                # Hitung total tiap kategori pekerjaan dan persentase rumah "Tidak Layak"
-                crosstab_counts["Total"] = crosstab_counts.sum(axis=1)
-                if "Tidak Layak" in crosstab_counts.columns:
-                    crosstab_counts["% Tidak Layak"] = (crosstab_counts["Tidak Layak"] / crosstab_counts["Total"]) * 100
-                
-                crosstab_counts = crosstab_counts.sort_values(by="Tidak Layak", ascending=False)
-                
-                # Tampilkan tabel Crosstab di Streamlit
-                st.dataframe(crosstab_counts)
-
-                # **Visualisasi dengan Plotly Express**
-                if "Tidak Layak" in crosstab_counts.columns:
-                    fig = px.bar(
-                        crosstab_counts.reset_index(),
-                        x="pekerjaan",
-                        y="Tidak Layak",
-                        title="Jumlah Rumah Tidak Layak per Pekerjaan",
-                        labels={"pekerjaan": "Pekerjaan", "Tidak Layak": "Jumlah Rumah Tidak Layak"},
-                        text="Tidak Layak",
-                        color="Tidak Layak",
-                        color_continuous_scale="Oranges"
-                    )
-                    # Perbaikan agar teks tidak terpotong
-                    fig.update_traces(texttemplate='%{text}', textposition='outside', cliponaxis=False)
-                    fig.update_layout(xaxis_tickangle=-45, margin=dict(t=80))  # Tambah ruang atas
-
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-            elif pilihan == "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan":
-
-                # Ambil kolom "pekerjaan" dari df berdasarkan indeks df_perilaku
-                df_perilaku_with_pekerjaan = df.loc[df_perilaku.index, ["pekerjaan"]].copy()
-
-                # Pastikan label Perilaku menjadi "Baik" dan "Tidak Baik"
-                df_perilaku_with_pekerjaan["Perilaku_Label"] = df_perilaku["Label"].replace({
-                    "Layak": "Baik", 
-                    "Tidak Layak": "Tidak Baik"
-                })
-
-                # Buat tabel crosstab
-                crosstab_perilaku = pd.crosstab(
-                    df_perilaku_with_pekerjaan["pekerjaan"],
-                    df_perilaku_with_pekerjaan["Perilaku_Label"]
-                )
-
-                # Tambahkan kolom Total
-                crosstab_perilaku["Total"] = crosstab_perilaku.sum(axis=1)
-
-                # Pastikan ada kolom "Baik" dan "Tidak Baik" agar tidak error
-                if "Baik" not in crosstab_perilaku.columns:
-                    crosstab_perilaku["Baik"] = 0
-                if "Tidak Baik" not in crosstab_perilaku.columns:
-                    crosstab_perilaku["Tidak Baik"] = 0
-
-                # Hitung persentase Perilaku Tidak Baik
-                crosstab_perilaku["% Tidak Baik"] = (crosstab_perilaku["Tidak Baik"] / crosstab_perilaku["Total"]) * 100
-
-                # **Tampilkan tabel di Streamlit (dengan Perilaku Baik tetap terlihat)**
-                st.dataframe(crosstab_perilaku)
-                # Urutkan data berdasarkan jumlah "Tidak Baik" dari terbesar ke terkecil
-                crosstab_perilaku = crosstab_perilaku.sort_values(by="Tidak Baik", ascending=False)
-
-                # **Visualisasi dengan Plotly (Hanya % Tidak Baik)**
-                fig = px.bar(
-                crosstab_perilaku.reset_index(),
-                x="pekerjaan",
-                y="Tidak Baik",
-                title="Jumlah Perilaku Tidak Baik per Pekerjaan",
-                labels={"pekerjaan": "Pekerjaan", "Tidak Baik": "Jumlah Perilaku Tidak Baik"},
-                text="Tidak Baik",
-                color="Tidak Baik",
-                color_continuous_scale="Reds"
-                )
-                # Perbaikan agar teks tidak terpotong
-                fig.update_traces(texttemplate='%{text}', textposition='outside', cliponaxis=False)
-                fig.update_layout(xaxis_tickangle=-45, margin=dict(t=80))  # Tambah ruang atas
-
-                st.plotly_chart(fig, use_container_width=True)
-
-
-                                
-            elif pilihan == "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan":
-
-                # Ambil kolom "pekerjaan" dari df berdasarkan indeks df_sanitasi
-                df_sanitasi_with_pekerjaan = df.loc[df_sanitasi.index, ["pekerjaan"]].copy()
-                
-                # Tambahkan kolom "Sanitasi_Label" (Layak/Tidak Layak) dari df_sanitasi
-                df_sanitasi_with_pekerjaan["Sanitasi_Label"] = df_sanitasi["Label"].values
-
-                # Buat crosstab
-                crosstab_sanitasi = pd.crosstab(
-                    df_sanitasi_with_pekerjaan["pekerjaan"],
-                    df_sanitasi_with_pekerjaan["Sanitasi_Label"]
-                )
-
-                # Tambahkan kolom Total dan persentase "Tidak Layak"
-                crosstab_sanitasi["Total"] = crosstab_sanitasi.sum(axis=1)
-                if "Tidak Layak" in crosstab_sanitasi.columns:
-                    crosstab_sanitasi = crosstab_sanitasi.sort_values(by="Tidak Layak", ascending=False)
-
-                    fig = px.bar(
-                        crosstab_sanitasi.reset_index(),
-                        x="pekerjaan",
-                        y="Tidak Layak",
-                        title="Jumlah Sanitasi Tidak Layak per Pekerjaan",
-                        labels={"pekerjaan": "Pekerjaan", "Tidak Layak": "Jumlah Sanitasi Tidak Layak"},
-                        text="Tidak Layak",
-                        color="Tidak Layak",
-                        color_continuous_scale="Blues"
-                    )
-
-                    # Perbaikan agar teks tidak terpotong
-                    fig.update_traces(texttemplate='%{text}', textposition='outside', cliponaxis=False)
-                    fig.update_layout(xaxis_tickangle=-45, margin=dict(t=80))  # Tambah ruang atas
-
-                    st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig)
+            
                         
+            elif pilihan == "📈 Kebiasaan CTPS":
+                st.subheader("📈 Kebiasaan CTPS vs Jumlah Pasien")
+                
+                # Grup data berdasarkan kebiasaan CTPS
+                data_ctps = df.groupby("kebiasaan_ctps")["pasien"].count().reset_index()
+                data_ctps.columns = ["kebiasaan_ctps", "jumlah_pasien"]
+                data_ctps = data_ctps.sort_values(by="jumlah_pasien", ascending=False)
+                
+                # Hitung persentase
+                total_pasien_ctps = data_ctps["jumlah_pasien"].sum()
+                data_ctps["persentase"] = (data_ctps["jumlah_pasien"] / total_pasien_ctps) * 100
+            
+                # Buat plot dengan Plotly
+                fig = px.bar(
+                    data_ctps, 
+                    x="jumlah_pasien", 
+                    y="kebiasaan_ctps", 
+                    orientation="h",
+                    text=data_ctps["jumlah_pasien"].astype(str) + " (" + data_ctps["persentase"].round(1).astype(str) + "%)",
+                    labels={"jumlah_pasien": "Jumlah Pasien", "kebiasaan_ctps": "Kebiasaan CTPS"},
+                    title="📈 Kebiasaan CTPS vs Jumlah Pasien",
+                    color="jumlah_pasien", 
+                    color_continuous_scale="Blues"
+                )
+
+                # Sesuaikan tampilan teks label
+                fig.update_traces(textposition="outside")
+                fig.update_layout(yaxis=dict(categoryorder="total ascending"))
+            
+                # Tampilkan di Streamlit dengan fitur zoom, pan, download otomatis
+                st.plotly_chart(fig, use_container_width=True)
+            
+            elif pilihan == "🐑 Memiliki Hewan Ternak":
+                st.subheader("🐑 Memiliki Hewan Ternak vs Jumlah Pasien")
+                
+                # Grup data berdasarkan kepemilikan hewan ternak
+                data_ternak = df.groupby("memiliki_hewan_ternak")["pasien"].count().reset_index()
+                data_ternak.columns = ["memiliki_hewan_ternak", "jumlah_pasien"]
+                data_ternak = data_ternak.sort_values(by="jumlah_pasien", ascending=False)
+            
+                # Hitung persentase
+                total_pasien_ternak = data_ternak["jumlah_pasien"].sum()
+                data_ternak["persentase"] = (data_ternak["jumlah_pasien"] / total_pasien_ternak) * 100
+            
+                # Buat plot dengan Plotly
+                fig = px.bar(
+                    data_ternak, 
+                    x="jumlah_pasien", 
+                    y="memiliki_hewan_ternak", 
+                    orientation="h",
+                    text=data_ternak["jumlah_pasien"].astype(str) + " (" + data_ternak["persentase"].round(1).astype(str) + "%)",
+                    labels={"jumlah_pasien": "Jumlah Pasien", "memiliki_hewan_ternak": "Memiliki Hewan Ternak"},
+                    title="🐑 Memiliki Hewan Ternak vs Jumlah Pasien",
+                    color="jumlah_pasien", 
+                    color_continuous_scale="magma_r"
+                )
+
+                # Sesuaikan tampilan teks label
+                fig.update_traces(textposition="outside")
+                fig.update_layout(yaxis=dict(categoryorder="total ascending"))
+
+                # Tampilkan di Streamlit dengan fitur zoom, pan, dan download otomatis
+                st.plotly_chart(fig, use_container_width=True)
                 
             elif pilihan == "🏠 Rumah Layak & Tidak Layak (Chart + Detail)":
+                st.subheader("🏠 Rumah Layak & Tidak Layak")
                 
                 # --- Pie Chart Rumah Layak vs Tidak Layak ---
                 # Pastikan variabel persentase_tidak_layak_rumah sudah didefinisikan sebelumnya
@@ -1078,48 +685,31 @@ if nav == "📈 Visualisasi":
                 df_detail = pd.DataFrame(list(kategori_rumah_detail.items()), columns=['Kategori', 'Jumlah'])
                 df_detail['Persentase'] = (df_detail['Jumlah'] / total_rumah) * 100
                 df_detail = df_detail.sort_values(by='Jumlah', ascending=False)
-            
-                df_detail["Teks"] = df_detail["Persentase"].apply(lambda x: f"{x:.1f}%")
-                # Buat bar chart horizontal dengan sumbu x = Persentase
-                # Buat bar chart horizontal dengan sumbu x = Persentase
+                
+                # Buat bar chart dengan Plotly
                 fig_bar = px.bar(
                     df_detail,
-                    x="Persentase",                  # gunakan kolom persentase untuk sumbu X
+                    x="Jumlah",
                     y="Kategori",
                     orientation="h",
-                    text="Teks",                     # hanya menampilkan persentase di batang
-                    title="Kategori Rumah Tidak Layak (Berbasis Persentase)",
-                    labels={
-                        "Persentase": "Persentase (%)", 
-                        "Kategori": "Kategori Rumah Tidak Layak"
-                    },
-                    color="Persentase",              # gunakan persentase untuk pewarnaan
-                    color_continuous_scale="Viridis",
-                    # Menampilkan Jumlah di tooltip saat kursor diarahkan
-                    hover_data={
-                        "Jumlah": True,          # Tampilkan jumlah
-                        "Persentase": ":.1f"     # Format persentase 1 desimal
-                    }
+                    text=df_detail.apply(lambda row: f"{row['Jumlah']} rumah ({row['Persentase']:.1f}%)", axis=1),
+                    title="Kategori Rumah Tidak Layak",
+                    labels={"Jumlah": "Jumlah Rumah", "Kategori": "Kategori Rumah Tidak Layak"},
+                    color="Jumlah",
+                    color_continuous_scale="Viridis"
                 )
-
-                # Tampilkan teks di luar batang
-                fig_bar.update_traces(textposition="outside")
-
-                # Pengaturan layout
+                
+                # Sesuaikan tampilan teks dan margin agar tidak terpotong
+                fig_bar.update_traces(textposition="outside", textfont=dict(size=10))
                 fig_bar.update_layout(
-                    yaxis=dict(categoryorder="total ascending"),
-                    margin=dict(l=200, r=50, t=50, b=50),
-                    autosize=False,
-                    width=900,
-                    height=600
+                    xaxis_range=[0, df_detail["Jumlah"].max() + 5],
+                    margin=dict(l=150, r=50, t=50, b=50)
                 )
-
-                # Jika ingin sembunyikan color scale, gunakan:
-                # fig_bar.update_layout(coloraxis_showscale=False)
-
+                
                 st.plotly_chart(fig_bar, use_container_width=True)
 
             elif pilihan == "🚰 Sanitasi Layak & Tidak Layak (Chart + Detail)":
+                st.subheader("🚰 Sanitasi Layak & Tidak Layak")
                 
                 # --- Pie Chart Sanitasi Layak vs Tidak Layak ---
                 persentase_layak_sanitasi = 100 - persentase_tidak_layak_sanitasi  # pastikan variabel ini sudah didefinisikan
@@ -1166,37 +756,30 @@ if nav == "📈 Visualisasi":
                 df_sanitasi_detail['Persentase'] = (df_sanitasi_detail['Jumlah'] / total_rumah) * 100
                 df_sanitasi_detail = df_sanitasi_detail.sort_values(by='Jumlah', ascending=False)
                 
-                height_chart = max(700, len(df_sanitasi_detail) * 30)
-                
                 # Buat bar chart dengan Plotly Express (horizontal)
-                fig_bar_sanitasi = px.bar(
+                fig_bar = px.bar(
                     df_sanitasi_detail,
-                    x="Persentase",               # sumbu X menampilkan nilai persentase
+                    x="Jumlah",
                     y="Kategori",
                     orientation="h",
-                    text=df_sanitasi_detail["Persentase"].apply(lambda x: f"{x:.1f}%"),
+                    text=df_sanitasi_detail.apply(lambda row: f"{row['Jumlah']} rumah ({row['Persentase']:.1f}%)", axis=1),
                     title="Kategori Sanitasi Tidak Layak",
-                    labels={"Persentase": "Persentase (%)", "Kategori": "Kategori Sanitasi Tidak Layak"},
-                    color="Persentase",
-                    color_continuous_scale="Cividis",
-                    hover_data={
-                        "Jumlah": True,           # tampilkan jumlah di tooltip
-                        "Persentase": ":.1f"       # tampilkan persentase dengan 1 desimal
-                    }
+                    labels={"Jumlah": "Jumlah Rumah", "Kategori": "Kategori Sanitasi Tidak Layak"},
+                    color="Jumlah",
+                    color_continuous_scale="Cividis"
+                )
+                fig_bar.update_traces(textposition="outside", textfont=dict(size=12))
+                fig_bar.update_layout(
+                    xaxis_title="Jumlah Rumah",
+                    yaxis_title="Kategori Sanitasi Tidak Layak",
+                    margin=dict(l=150, r=50, t=50, b=50)
                 )
                 
-                fig_bar_sanitasi.update_traces(textposition="outside")
-                fig_bar_sanitasi.update_layout(
-                    yaxis=dict(categoryorder="total ascending"),
-                    margin=dict(l=300, r=50, t=50, b=50),
-                    autosize=False,
-                    width=1400,
-                    height=height_chart
-    )
-                st.plotly_chart(fig_bar_sanitasi, use_container_width=True)
+                st.plotly_chart(fig_bar, use_container_width=True)
 
             
             elif pilihan == "🚩 Perilaku Baik & Tidak Sehat (Chart + Detail)":
+                st.subheader("🚩 Perilaku Baik & Tidak Sehat")
                 
                 # --- Pie Chart Perilaku Baik vs Tidak Baik ---
                 # Pastikan variabel persentase_tidak_baik_perilaku sudah didefinisikan
@@ -1240,37 +823,28 @@ if nav == "📈 Visualisasi":
                     lambda row: f"{row['Jumlah']} ({row['Persentase']:.1f}%)", axis=1
                 )
                 
-                # Buat kolom teks yang hanya menampilkan persentase pada batang
-                df_perilaku_detail["Teks"] = df_perilaku_detail["Persentase"].apply(lambda x: f"{x:.1f}%")
-                
-                # Buat bar chart horizontal dengan sumbu X = Persentase
                 fig_bar = px.bar(
                     df_perilaku_detail,
-                    x="Persentase",
+                    x="Jumlah",
                     y="Kategori",
                     orientation="h",
-                    text="Teks",  # hanya menampilkan persentase pada batang
+                    text="Label",
                     title="Kategori Perilaku Tidak Sehat",
-                    labels={"Persentase": "Persentase (%)", "Kategori": "Kategori Perilaku Tidak Sehat"},
-                    color="Persentase",
-                    color_continuous_scale="Blues",
-                    hover_data={
-                        "Jumlah": True,         # Tampilkan jumlah di tooltip
-                        "Persentase": ":.1f"     # Format persentase di tooltip
-                    }
+                    labels={"Jumlah": "Jumlah Rumah", "Kategori": "Kategori Perilaku Tidak Sehat"},
+                    color="Jumlah",
+                    color_continuous_scale="Blues"
                 )
-                
                 fig_bar.update_traces(textposition="outside", textfont=dict(size=11))
                 fig_bar.update_layout(
-                    yaxis=dict(categoryorder="total ascending"),
-                    margin=dict(l=200, r=50, t=50, b=50),
-                    autosize=False,
-                    width=900,
-                    height= max(600, len(df_perilaku_detail)*30)
+                    xaxis_title="Jumlah Rumah",
+                    yaxis_title="Kategori Perilaku Tidak Sehat",
+                    margin=dict(l=150, r=50, t=50, b=50)
                 )
+                
                 st.plotly_chart(fig_bar, use_container_width=True)
-    
+
             elif pilihan == "🩺 Jumlah Pasien per Puskesmas":
+                st.subheader("🩺 Jumlah Pasien per Puskesmas")
                 
                 # Hitung jumlah pasien berdasarkan puskesmas
                 puskesmas_counts = df.groupby("puskesmas")["pasien"].count().reset_index()
@@ -1304,61 +878,31 @@ if nav == "📈 Visualisasi":
                 st.plotly_chart(fig, use_container_width=True)
             
             elif pilihan == "📅 Tren Date Start Pasien":
-                # **Cek apakah data tersedia**
-                # **Load Data dari MySQL**          
-                df = load_data_from_mysql()
-                if df.empty:
-                    st.warning("⚠️ Data tidak ditemukan dalam database.")
-                else:
-                    # **Konversi date_start ke datetime**
-                    df = df.copy()  # Buat salinan agar aman
-                    # Pastikan 'df' sudah ada dan kolom 'date_start' dalam format datetime
-                    # **Pastikan date_start dalam format datetime**
-                    df["date_start"] = pd.to_datetime(df["date_start"], errors="coerce")
-
-                    # **Ambil semua bulan dengan format 'M'**
-                    df["Bulan"] = df["date_start"].dt.to_period("M").astype(str)
-                    all_months = sorted(df["Bulan"].unique())  # Urutkan bulan
-
-                    # **Widget pemilihan bulan**
-                    start_month = st.selectbox("Pilih bulan awal", all_months, index=0)
-                    end_month = st.selectbox("Pilih bulan akhir", all_months, index=len(all_months)-1)
-
-                    # **Buat rentang bulan lengkap**
-                    date_range = pd.period_range(start=start_month, end=end_month, freq="M").strftime("%Y-%m").tolist()
-
-                    # **Filter dataset sesuai pilihan**
-                    df_filtered = df.loc[(df["Bulan"] >= start_month) & (df["Bulan"] <= end_month)].copy()
-
-                    # **Hitung jumlah pasien per bulan**
-                    date_counts = df_filtered.groupby("Bulan", as_index=False, observed=False)["pasien"].count()
-                    date_counts.columns = ["Bulan", "Jumlah Pasien"]
-
-                    # **Gabungkan dengan daftar lengkap bulan yang dipilih**
-                    date_counts = pd.DataFrame({"Bulan": date_range}).merge(date_counts, on="Bulan", how="left").fillna(0)
-
-                    # **Format sumbu X agar rapi**
-                    date_counts["Bulan"] = pd.to_datetime(date_counts["Bulan"], format="%Y-%m")
-                    date_counts = date_counts.sort_values("Bulan")
-                    date_counts["Bulan"] = date_counts["Bulan"].dt.strftime("%b %Y")  # Format 'Mar 2025'
-
-                    # **Buat grafik**
-                    fig = px.line(
-                        date_counts,
-                        x="Bulan",
-                        y="Jumlah Pasien",
-                        markers=True,
-                        labels={"Bulan": "Bulan", "Jumlah Pasien": "Jumlah Pasien"},
-                        title="📈 Tren Pasien Per Bulan",
-                        color_discrete_sequence=["#2CA02C"]
-                    )
-
-                    # **Pastikan semua bulan muncul di sumbu X**
-                    fig.update_xaxes(type="category", tickmode="array", tickvals=date_counts["Bulan"])
-
-                    st.plotly_chart(fig, use_container_width=True)
-                    
+                st.subheader("📅 Tren Date Start Pasien")
+                
+                # Pastikan kolom date_start dalam format datetime
+                df["date_start"] = pd.to_datetime(df["date_start"], errors="coerce")
+                
+                # Resampling data per bulan agar lebih rapi
+                df["year_month"] = df["date_start"].dt.to_period("M")  # Format YYYY-MM
+                date_counts = df.groupby("year_month")["pasien"].count().reset_index()
+                date_counts["year_month"] = date_counts["year_month"].astype(str)  # Konversi ke string untuk sumbu X
+            
+                # Membuat grafik dengan Plotly
+                fig = px.line(
+                    date_counts,
+                    x="year_month",
+                    y="pasien",
+                    markers=True,
+                    labels={"year_month": "Bulan", "pasien": "Jumlah Pasien"},
+                    title="Tren Date Start Pasien"
+                )
+                fig.update_traces(line=dict(width=3))
+            
+                st.plotly_chart(fig)
+                
             elif pilihan == "📊 Distribusi Usia":
+                st.subheader("📊 Distribusi Usia")
             
                 # Pastikan kolom "age" ada dan bersifat numerik
                 if "age" not in df.columns:
@@ -1375,7 +919,7 @@ if nav == "📈 Visualisasi":
                         df["age_group"] = pd.cut(df["age"], bins=bins, labels=labels, right=False)
             
                         # Grouping berdasarkan age_group dan gender
-                        age_gender = df.groupby(["age_group", "gender"], observed=False).size().reset_index(name="count")
+                        age_gender = df.groupby(["age_group", "gender"]).size().reset_index(name="count")
             
                         # Plot menggunakan Plotly
                         fig = px.bar(
@@ -1388,35 +932,25 @@ if nav == "📈 Visualisasi":
                             title="Distribusi Usia per Gender"
                         )
 
-                        fig.update_traces(textposition="outside")
-                        fig.update_layout(yaxis=dict(categoryorder="total ascending"))
-                
-                        # Tampilkan grafik Plotly (toolbar interaktif sudah otomatis termasuk opsi download)
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig)
                         
             elif pilihan == "🟢 Status Gizi dan Imunisasi":
+                st.subheader("🟢 Distribusi Status Gizi dan Imunisasi (Gabungan)")
             
-                # 🔹 Pastikan kolom tersedia
+                # Pastikan kolom tersedia
                 if "status_imunisasi" not in df.columns:
                     st.warning("Kolom 'status_imunisasi' tidak ditemukan di data.")
                 elif "status_gizi" not in df.columns:
                     st.warning("Kolom 'status_gizi' tidak ditemukan di data.")
                 else:
-                    # 🔹 Definisikan kategori yang valid
-                    valid_status_gizi = ['Underweight', 'Normal', 'Wasting', 'Kurang', 'Overweight', 'Obesitas']
-
-                    # 🔹 Filter data hanya untuk kategori yang valid
-                    df_filtered = df[df["status_gizi"].isin(valid_status_gizi)]
-
-                    # 🔹 Cek apakah data kosong setelah filter
-                    if df_filtered.empty:
+                    # Grouping data dengan size(), bukan sum()
+                    imunisasi_gizi = df.groupby(["status_gizi", "status_imunisasi"]).size().reset_index(name="count")
+            
+                    # Cek apakah data kosong
+                    if imunisasi_gizi.empty:
                         st.warning("Data tidak tersedia untuk status gizi dan imunisasi.")
                     else:
-                        # 🔹 Grouping data setelah filtering
-                        imunisasi_gizi = df_filtered.groupby(["status_gizi", "status_imunisasi"], observed=False).size().reset_index(name="count")
-
-
-                        # 🔹 Membuat grafik dengan Plotly
+                        # Membuat grafik dengan Plotly
                         fig = px.bar(
                             imunisasi_gizi,
                             x="status_gizi",
@@ -1426,15 +960,12 @@ if nav == "📈 Visualisasi":
                             labels={"count": "Jumlah", "status_gizi": "Status Gizi", "status_imunisasi": "Status Imunisasi"},
                             title="Distribusi Status Gizi berdasarkan Status Imunisasi"
                         )
-
-                        # 🔹 Menampilkan grafik di Streamlit
-                        fig.update_traces(textposition="outside")
-                        fig.update_layout(yaxis=dict(categoryorder="total ascending"))
-                
-                        # Tampilkan grafik Plotly (toolbar interaktif sudah otomatis termasuk opsi download)
-                        st.plotly_chart(fig, use_container_width=True)
+            
+                        # Menampilkan grafik langsung tanpa fungsi tambahan
+                        st.plotly_chart(fig)
                         
             elif pilihan == "🎯 Distribusi Pekerjaan":
+                st.subheader("🎯 Distribusi Pekerjaan")
                 
                 # Grup data berdasarkan kolom 'pekerjaan'
                 data = df.groupby("pekerjaan")["pasien"].count().reset_index()
@@ -1469,8 +1000,302 @@ if nav == "📈 Visualisasi":
                 )
                 
                 st.plotly_chart(fig, use_container_width=True)
-                        
+
+            elif pilihan == "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan":
+                st.subheader("🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan")
+
+                # Ambil data 'pekerjaan' dari df untuk baris-baris yang terdapat di df_rumah (asumsi index cocok)
+                df_rumah_with_pekerjaan = df.loc[df_rumah.index, ["pekerjaan"]].copy()
+                # Tambahkan kolom indikator rumah (Label: Layak/Tidak Layak)
+                df_rumah_with_pekerjaan["Rumah_Label"] = df_rumah["Label"].values
+                
+                # Buat tabel crosstab untuk menghitung frekuensi tiap kategori pekerjaan berdasarkan label rumah
+                crosstab_counts = pd.crosstab(df_rumah_with_pekerjaan["pekerjaan"], df_rumah_with_pekerjaan["Rumah_Label"])
+                
+                # Hitung total tiap kategori pekerjaan dan persentase rumah "Tidak Layak"
+                crosstab_counts["Total"] = crosstab_counts.sum(axis=1)
+                if "Tidak Layak" in crosstab_counts.columns:
+                    crosstab_counts["% Tidak Layak"] = (crosstab_counts["Tidak Layak"] / crosstab_counts["Total"]) * 100
+                
+                st.dataframe(crosstab_counts)
+
+                # **Visualisasi dengan Plotly Express**
+                if "Tidak Layak" in crosstab_counts.columns:
+                    fig = px.bar(
+                        crosstab_counts.reset_index(),
+                        x="pekerjaan",
+                        y="% Tidak Layak",
+                        title="Persentase Rumah Tidak Layak per Pekerjaan",
+                        labels={"pekerjaan": "Pekerjaan", "% Tidak Layak": "Persentase Rumah Tidak Layak (%)"},
+                        text="% Tidak Layak",
+                        color="% Tidak Layak",
+                        color_continuous_scale="Oranges"
+                    )
+                    fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
+                    fig.update_layout(xaxis_tickangle=-45)  # Rotasi label sumbu x untuk keterbacaan lebih baik
+                    st.plotly_chart(fig)
+                    
+
+            elif pilihan == "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan":
+                st.subheader("🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan")
+
+                # Pastikan df_perilaku memiliki kolom "Label" berisi "Layak" / "Tidak Layak"
+                # dan df memiliki kolom "pekerjaan".
+                
+                # 1) Ambil kolom "pekerjaan" dari df berdasarkan indeks df_perilaku
+                df_perilaku_with_pekerjaan = df.loc[df_perilaku.index, ["pekerjaan"]].copy()
+                
+                # 2) Tambahkan kolom "Perilaku_Label" (Layak/Tidak Layak) dari df_perilaku
+                df_perilaku_with_pekerjaan["Perilaku_Label"] = df_perilaku["Label"].values
+                
+                # 3) Buat crosstab
+                crosstab_perilaku = pd.crosstab(
+                    df_perilaku_with_pekerjaan["pekerjaan"],
+                    df_perilaku_with_pekerjaan["Perilaku_Label"]
+                )
+                
+                # 4) (Opsional) Tambahkan kolom Total dan persentase "Tidak Layak"
+                crosstab_perilaku["Total"] = crosstab_perilaku.sum(axis=1)
+                if "Tidak Layak" in crosstab_perilaku.columns:
+                    crosstab_perilaku["% Tidak Layak"] = (
+                        crosstab_perilaku["Tidak Layak"] / crosstab_perilaku["Total"]
+                    ) * 100
+                
+                # 5) Tampilkan di Streamlit
+                st.dataframe(crosstab_perilaku)
+            
+                # **Visualisasi dengan Plotly (Hanya % Tidak Layak)**
+                fig = px.bar(
+                    crosstab_perilaku.reset_index(),
+                    x="pekerjaan",
+                    y="% Tidak Layak",
+                    title="Persentase Perilaku Tidak Baik per Pekerjaan",
+                    labels={"pekerjaan": "Pekerjaan", "% Tidak Layak": "Persentase Perilaku Tidak Baik (%)"},
+                    text="% Tidak Layak",
+                    color="% Tidak Layak",
+                    color_continuous_scale="Reds"
+                )
+            
+                fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
+                fig.update_layout(xaxis_tickangle=-45)  # Rotasi label sumbu X agar lebih rapi
+                st.plotly_chart(fig)
 
             
+            elif pilihan == "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan":
+                st.subheader("🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan")
+
+                # Pastikan df_sanitasi memiliki kolom "Label" berisi "Layak" / "Tidak Layak"
+                # dan df memiliki kolom "pekerjaan".
+                
+                # 1) Ambil kolom "pekerjaan" dari df berdasarkan indeks df_sanitasi
+                df_sanitasi_with_pekerjaan = df.loc[df_sanitasi.index, ["pekerjaan"]].copy()
+                
+                # 2) Tambahkan kolom "Sanitasi_Label" (Layak/Tidak Layak) dari df_sanitasi
+                df_sanitasi_with_pekerjaan["Sanitasi_Label"] = df_sanitasi["Label"].values
+                
+                # 3) Buat crosstab
+                crosstab_sanitasi = pd.crosstab(
+                    df_sanitasi_with_pekerjaan["pekerjaan"],
+                    df_sanitasi_with_pekerjaan["Sanitasi_Label"]
+                )
+                
+                # 4) (Opsional) Tambahkan kolom Total dan persentase "Tidak Layak"
+                crosstab_sanitasi["Total"] = crosstab_sanitasi.sum(axis=1)
+                if "Tidak Layak" in crosstab_sanitasi.columns:
+                    crosstab_sanitasi["% Tidak Layak"] = (
+                        crosstab_sanitasi["Tidak Layak"] / crosstab_sanitasi["Total"]
+                    ) * 100
+                
+                # 5) Tampilkan di Streamlit
+                st.dataframe(crosstab_sanitasi)
+
+                # **Visualisasi dengan Plotly Express**
+                if "Tidak Layak" in crosstab_sanitasi.columns:
+                    fig = px.bar(
+                        crosstab_sanitasi.reset_index(),
+                        x="pekerjaan",
+                        y="% Tidak Layak",
+                        title="Persentase Sanitasi Tidak Layak per Pekerjaan",
+                        labels={"pekerjaan": "Pekerjaan", "% Tidak Layak": "Persentase Sanitasi Tidak Layak (%)"},
+                        text="% Tidak Layak",
+                        color="% Tidak Layak",
+                        color_continuous_scale="Blues"
+                    )
+                    fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
+                    fig.update_layout(xaxis_tickangle=-45)  # Rotasi label sumbu X untuk keterbacaan lebih baik
+                    st.plotly_chart(fig)
+
+            elif pilihan == "📊 Jumlah Pasien Berdasarkan Tipe TB":
+                st.subheader("📊 Jumlah Pasien Berdasarkan Tipe TB")
+
+                # Periksa apakah kolom 'type_tb' ada di DataFrame gabungan
+                if "type_tb" not in df.columns:
+                    st.warning("Kolom 'type_tb' tidak ditemukan di data.")
+                else:
+                    # Fungsi mapping yang fleksibel untuk mengonversi nilai ke "SO", "RO", atau "Lainnya"
+                    def map_tb_type(x):
+                        x_str = str(x).strip().lower()  # ubah ke string, hapus spasi, dan lowercase
+                        if x_str in ["1", "1.0", "so"]:
+                            return "SO"
+                        elif x_str in ["2", "2.0", "ro"]:
+                            return "RO"
+                        else:
+                            return "Lainnya"
+            
+                    # Terapkan mapping ke kolom 'type_tb' dan simpan hasilnya di kolom baru "type_tb_str"
+                    df["type_tb_str"] = df["type_tb"].apply(map_tb_type)
+            
+                    # Hitung jumlah pasien per tipe TB (SO, RO, dan Lainnya)
+                    count_tipe = df["type_tb_str"].value_counts().reset_index()
+                    count_tipe.columns = ["Tipe TB", "Jumlah Pasien"]
+            
+                    # Buat bar chart menggunakan Plotly Express
+                    fig = px.bar(
+                        count_tipe,
+                        x="Tipe TB",
+                        y="Jumlah Pasien",
+                        text="Jumlah Pasien",
+                        title="Jumlah Pasien Berdasarkan Tipe TB (SO, RO, dan Lainnya)",
+                        labels={"Tipe TB": "Tipe TB", "Jumlah Pasien": "Jumlah Pasien"},
+                        color="Jumlah Pasien",
+                        color_continuous_scale="Viridis"
+                    )
+                    fig.update_traces(textposition="outside")
+                    st.plotly_chart(fig, use_container_width=True)
+
+            elif pilihan == "🗺️ Peta Frekuensi Pasien per Kelurahan":
+                st.subheader("🗺️ Peta Frekuensi Pasien per Kelurahan")
+
+                # Pastikan kolom 'kelurahan' ada di DataFrame
+                if "kelurahan" not in df.columns:
+                    st.warning("Kolom 'kelurahan' tidak ditemukan di data.")
+                else:
+                    # 1) Hitung jumlah pasien per kelurahan
+                    df_kelurahan = df.groupby("kelurahan")["pasien"].count().reset_index()
+                    df_kelurahan.columns = ["kelurahan", "jumlah_pasien"]
+            
+                    # 2) Ambil daftar unik kelurahan dari data
+                    unique_kelurahan = df_kelurahan["kelurahan"].unique()
+            
+                    # 3) Inisialisasi geolocator dengan timeout yang lebih tinggi dan RateLimiter
+                    from geopy.geocoders import Nominatim
+                    from geopy.extra.rate_limiter import RateLimiter
+                    geolocator = Nominatim(user_agent="streamlit_app", timeout=10)
+                    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=3, error_wait_seconds=2)
+            
+                    # 4) Lakukan geocoding untuk tiap kelurahan
+                    kelurahan_coords = {}
+                    for k in unique_kelurahan:
+                        # Jika Anda ingin melewati kelurahan tertentu:
+                        if k in ["Luar Kota", "Pindrikan Kidul"]:
+                            st.info(f"Melewati geocoding untuk {k}.")
+                            continue
+                        try:
+                            location = geocode(f"{k}, Semarang, Indonesia")
+                            if location:
+                                kelurahan_coords[k] = (location.latitude, location.longitude)
+                            else:
+                                st.info(f"Koordinat untuk {k} tidak ditemukan.")
+                        except Exception as e:
+                            st.write(f"Tidak dapat menggeocode {k}: {e}")
+            
+                    # 5) Jika Anda memiliki koordinat manual:
+                    manual_coords = {
+                        # "Pindrikan Kidul": (-7.000000, 110.400000),
+                        # "Luar Kota": (-7.050000, 110.500000)
+                    }
+                    kelurahan_coords.update(manual_coords)
+            
+                    # 6) Ubah dictionary koordinat menjadi DataFrame
+                    import pandas as pd
+                    coords_df = pd.DataFrame(
+                        [(k, v[0], v[1]) for k, v in kelurahan_coords.items()],
+                        columns=["kelurahan", "lat", "lon"]
+                    )
+            
+                    # 7) Gabungkan data frekuensi pasien dengan DataFrame koordinat
+                    df_map = pd.merge(df_kelurahan, coords_df, on="kelurahan", how="inner")
+            
+                    # 8) Buat peta dengan Folium (pusatkan di Semarang)
+                    import folium
+                    from streamlit_folium import st_folium
+                    m = folium.Map(location=[-7.005145, 110.438125], zoom_start=12)
+            
+                    # 9) Tambahkan marker (CircleMarker) untuk tiap kelurahan
+                    for i, row in df_map.iterrows():
+                        kel = row["kelurahan"]
+                        lat = row["lat"]
+                        lon = row["lon"]
+                        jml = row["jumlah_pasien"]
+                        folium.CircleMarker(
+                            location=[lat, lon],
+                            radius=5 + jml * 0.1,  # Ukuran marker disesuaikan dengan jumlah pasien
+                            color="blue",
+                            fill=True,
+                            fill_color="blue",
+                            fill_opacity=0.6,
+                            popup=f"<b>{kel}</b><br>Jumlah Pasien: {jml}"
+                        ).add_to(m)
+            
+                    # 10) Tambahkan kontrol pan kustom dengan ikon panah
+                    from folium import MacroElement
+                    from jinja2 import Template
+            
+                    class PanControl(MacroElement):
+                        def __init__(self):
+                            super().__init__()
+                            self._name = "PanControl"
+                            self._template = Template("""
+                                {% macro script(this, kwargs) %}
+                                // Tambahkan kontrol pan kustom dengan tombol panah
+                                L.Control.Pan = L.Control.extend({
+                                    options: {
+                                        position: 'topleft'
+                                    },
+                                    onAdd: function(map) {
+                                        var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+                                        container.style.backgroundColor = 'white';
+                                        container.style.padding = '5px';
+                                        container.innerHTML = `
+                                            <a href="#" id="pan-up" style="display: block; text-align: center; font-size: 18px;">&#8593;</a>
+                                            <a href="#" id="pan-left" style="display: inline-block; width: 30px; text-align: center; font-size: 18px;">&#8592;</a>
+                                            <a href="#" id="pan-right" style="display: inline-block; width: 30px; text-align: center; font-size: 18px;">&#8594;</a>
+                                            <a href="#" id="pan-down" style="display: block; text-align: center; font-size: 18px;">&#8595;</a>
+                                        `;
+                                        L.DomEvent.disableClickPropagation(container);
+                                        return container;
+                                    }
+                                });
+                                L.control.pan = function(opts) {
+                                    return new L.Control.Pan(opts);
+                                };
+                                var map = {{this._parent.get_name()}};
+                                L.control.pan({ position: 'topleft' }).addTo(map);
+                                document.getElementById('pan-up').addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    map.panBy([0, -100]);
+                                });
+                                document.getElementById('pan-down').addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    map.panBy([0, 100]);
+                                });
+                                document.getElementById('pan-left').addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    map.panBy([-100, 0]);
+                                });
+                                document.getElementById('pan-right').addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    map.panBy([100, 0]);
+                                });
+                                {% endmacro %}
+                            """)
+            
+                    # Tambahkan pan control ke peta
+                    m.get_root().add_child(PanControl())
+            
+                    st.title("Peta Frekuensi Pasien per Kelurahan")
+                    st_folium(m, width=700, height=500)
+                        
+
             st.sidebar.success("Visualisasi selesai ditampilkan!")
             
