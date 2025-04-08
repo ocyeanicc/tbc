@@ -8,199 +8,58 @@ import plotly.express as px
 import plotly.io as pio  
 from PIL import Image
 import io
-import csv
-from io import StringIO
 
-# 2) Atur tema Seaborn
+# Atur tema Seaborn
 sns.set_theme(style="whitegrid")
 
-# 2) Inisialisasi session_state untuk menyimpan data CSV, data manual, dan data gabungan
-# --- Selalu muat data dari MySQL setiap kali aplikasi dijalankan ---
-# --- Inisialisasi session_state ---
+# Inisialisasi session_state untuk menyimpan data CSV, data manual, dan data gabungan
 if "csv_data" not in st.session_state:
     st.session_state["csv_data"] = pd.DataFrame()
+
 if "manual_data" not in st.session_state:
     st.session_state["manual_data"] = pd.DataFrame()
 
-# Selalu muat data dari MySQL setiap kali aplikasi dijalankan
-st.session_state["data"] = load_data_from_mysql()
+if "data" not in st.session_state:
+    st.session_state["data"] = pd.DataFrame()  # Inisialisasi dengan DataFrame kosong
+else:
+    st.session_state["data"] = st.session_state["data"].sort_index()
+
 
 # Fungsi untuk menampilkan label kolom tanpa underscore
 def display_label(col_name: str) -> str:
     return " ".join(word.capitalize() for word in col_name.split("_"))
 
-def update_mysql_data(pasien, column, new_value):
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        query = f"UPDATE tb_cases SET {column} = %s WHERE pasien = %s"
-        cursor.execute(query, (new_value, pasien))
-        conn.commit()
-    except Exception as e:
-        st.error(f"Error saat update: {e}")
-    finally:
-        cursor.close()
-        conn.close()
-
-def delete_mysql_data(pasien):
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        query = "DELETE FROM tb_cases WHERE pasien = %s"
-        cursor.execute(query, (pasien,))
-        conn.commit()
-    except Exception as e:
-        st.error(f"Error saat hapus data: {e}")
-    finally:
-        cursor.close()
-        conn.close()
-
-def insert_mysql_data(data):
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        columns = ", ".join(data.keys())
-        placeholders = ", ".join(["%s"] * len(data))
-        query = f"INSERT INTO tb_cases({columns}) VALUES ({placeholders})"
-        cursor.execute(query, tuple(data.values()))
-        conn.commit()
-    except Exception as e:
-        st.error(f"Error saat menambahkan data: {e}")
-    finally:
-        cursor.close()
-        conn.close()
-
-# 5) Tampilkan elemen di sidebar
+# Tampilkan elemen di sidebar
 logo_url = "https://raw.githubusercontent.com/lizyyaaa/tbc/main/dashboard/download%20(1).png" 
 st.sidebar.image(logo_url, use_container_width=True)
 
 # Title dan Subheader di sidebar
-st.sidebar.title("Dashboard Analisis TBC")
+st.sidebar.title("🏥 Dinas Kesehatan Kota Semarang")
 st.sidebar.subheader("Bidang P2P")
 st.sidebar.markdown("---")
 
-# Contoh info box untuk menambah keterangan di sidebar
+# Info box di sidebar
 st.sidebar.info("Silakan pilih halaman di bawah ini.")
 
-# 6) Navigasi menggunakan radio button di sidebar dengan emoji
-# Gunakan tiga opsi navigasi: Home, Data, dan Visualisasi
+# Navigasi menggunakan radio button di sidebar
 nav = st.sidebar.radio("🔽 Pilih Halaman", ["🏠 Home", "📈 Visualisasi"])
-# --- Global fields_order (pastikan konsisten) ---
-fields_order = [
-    "puskesmas", "pasien", "age", "gender", "faskes", "city", "regency",
-    "kelurahan", "type_tb", "date_start", "tgl_kunjungan", "status_hamil",
-    "penyakit", "pekerjaan", "tempat_kerja", "nama_kepala_keluarga",
-    "pekerjaan_kepala_keluarga", "total_pendapatan_keluarga_per_bulan",
-    "pola_asuh", "status_pernikahan", "status_pernikahan_orang_tua",
-    "jumlah_anggota_keluarga", "kepemilikan_jkn", "perilaku_merokok",
-    "anggota_keluarga_merokok", "mendapatkan_bantuan", "status_imunisasi",
-    "status_gizi", "status_rumah", "luas_rumah", "tipe_rumah",
-    "langit_langit", "lantai", "dinding", "jendela_kamar_tidur",
-    "jendela_ruang_keluarga", "ventilasi", "lubang_asap_dapur",
-    "pencahayaan", "sarana_air_bersih", "jamban",
-    "sarana_pembuangan_air_limbah", "sarana_pembuangan_sampah", "sampah",
-    "membuka_jendela_kamar_tidur", "membuka_jendela_ruang_keluarga",
-    "membersihkan_rumah", "membuang_tinja", "membuang_sampah",
-    "kebiasaan_ctps", "memiliki_hewan_ternak", "kandang_hewan"
-]
 
-option_dict = {
-    "puskesmas": ['Puskesmas Kedungmundu', 'Puskesmas Sekaran', 'Puskesmas Karangdoro', 'Puskesmas Rowosari', 
-                  'Puskesmas Bandarharjo', 'Puskesmas Pegandan', 'Puskesmas Mangkang', 'Puskesmas Candilama', 
-                  'Puskesmas Karang Malang', 'Puskesmas Ngaliyan', 'Puskesmas Lebdosari', 'Plamongan Sari', 
-                  'Puskesmas Purwoyoso', 'Puskesmas Bangetayu', 'Puskesmas Pandanaran', 'Puskesmas Mijen', 
-                  'Puskesmas Ngesrep', 'Puskesmas Karangayu', 'Puskesmas Tambakaji', 'Puskesmas Padangsari', 
-                  'Puskesmas Halmahera', 'Puskesmas Miroto', 'Puskesmas Genuk', 'bulusan', 'Puskesmas Bugangan', 
-                  'Puskesmas Tlogosari Wetan', 'Puskesmas Poncol', 'Puskesmas Pudak Payung', 'Puskesmas Kagok', 
-                  'Puskesmas Krobokan', 'Puskesmas Manyaran', 'Puskesmas Tlogosari Kulon', 'Puskesmas Karanganyar', 
-                  'Puskesmas Gunungpati', 'Puskesmas Ngemplak Simongan', 'Puskesmas Srondol', 'Puskesmas Gayamsari', 
-                  'Puskesmas Bulu Lor'],
-    "gender": ['L', 'P'],
-    "city": ['Semarang', 'Luar Kota'],
-    "regency": ['Tembalang', 'Gunungpati', 'Semarang Timur', 'Semarang Utara', 'Gajahmungkur', 'Tugu', 'Candisari', 
-                'Mijen', 'Ngaliyan', 'Semarang Barat', 'Pedurungan', 'Genuk', 'Semarang Selatan', 'Banyumanik', 
-                'Luar Kota', 'Semarang Tengah', 'Gayamsari'],
-    "kelurahan": ['Tandang', 'Sukorejo', 'Sendangmulyo', 'Sambiroto', 'Kemijen', 'Rejomulyo', 'Sendangguwo', 
-                  'Meteseh', 'Dadapsari', 'Petompon', 'Karangrejo', 'Lempongsari', 'Bendungan', 'Mangkang Wetan', 
-                  'Karanganyar Gunung', 'Sampangan', 'Tanjungmas', 'Kalisegoro', 'Karangmalang', 'Wates', 'Sekaran', 
-                  'Jangli', 'Kalibanteng Kulon', 'Penggaron Kidul', 'Bandarharjo', 'Purwoyoso', 'Pedurungan Kidul', 
-                  'Kedungmundu', 'Patemon', 'Sembungharjo', 'Bringin', 'Randusari', 'Wonoplumbon', 'Rowosari', 
-                  'Ngesrep', 'Tinjomoyo', 'Karangayu', 'Podorejo', 'Karangroto', 'Kalipancur', 'Wonosari', 
-                  'Sumurboto', 'Plamongansari', 'Padangsari', 'Bambankerep', 'Mangkang Kulon', 'Mangunharjo', 
-                  'Pedalangan', 'Jomblang', 'Kedungpane', 'Ngadirgo', 'Cangkiran', 'Luar Kota', 'Rejosari', 
-                  'Jatingaleh', 'Tambakaji', 'Mlatibaru', 'Ngaliyan', 'Gabahan', 'Miroto', 'Genuksari', 'Salamanmloyo', 
-                  'Bulusan', 'Bugangan', 'Kebonagung', 'Bulustalan', 'Gisikdrono', 'Tambakharjo', 'Muktiharjo Lor', 
-                  'Ngijo', 'Mijen', 'Wonolopo', 'Jabungan', 'Kuningan', 'Tlogomulyo', 'Banjardowo', 'Bubakan', 
-                  'Gondoriyo', 'Bendan Duwur', 'Gajahmungkur', 'Bendan Ngisor', 'Purwodinatan', 'Kramas', 'Kudu', 
-                  'Mugassari', 'Penggaron Lor', 'Bangetayu Wesan', 'Bangunharjo', 'Kembangsari', 'Pandansari', 
-                  'Sekayu', 'Karangtempel', 'Gedawang', 'Karangkidul', 'Bojongsalaman', 'Trimulyo', 'Bangetayu Kulon', 
-                  'Gebangsari', 'Jatibarang', 'Tambangan', 'Wonodri', 'Pudakpayung', 'Pedurungan Tengah', 'Candi', 
-                  'Kranggan', 'Tlogosari Wetan', 'Tawangsari', 'Palebon', 'Mlatibaru', 'Tegalsari', 'Wonotingal', 
-                  'Manyaran', 'Kembangarum', 'Barusari', 'Krapyak', 'Gemah', 'Tugurejo', 'Mangunsari', 'Nongkosawit', 
-                  'Karangturi', 'Tlogosari Kulon', 'NgemplakSimongan', 'Krobokan', 'Srondol Wetan', 'Banyumanik', 
-                  'Gunungpati', 'Jagalan', 'Pindrikan Lor', 'Jatisari', 'Srondol Kulon', 'Randugarut', 'Kaligawe', 
-                  'Tawangmas', 'Brumbungan', 'Siwalan', 'Tambakrejo', 'Sadeng', 'Sawah Besar', 'Jatirejo', 'Plalangan', 
-                  'Pakintelan', 'Kauman', 'Pandean Lamper', 'Gayamsari', 'Sambirejo', 'Sarirejo', 'Bongsari', 
-                  'Pindrikan Kidul', 'Sumurejo', 'Terboyo Wetan', 'Muktiharjo Kidul', 'Pedurungan Lor', 'Kalicari', 
-                  'Cabean', 'Karanganyar', 'Panggung Lor', 'Purwosari', 'Panggung Kidul', 'Bulu Lor', 'Plombokan', 
-                  'Kaliwiru', 'Pangangan', 'Kalibanteng Kidul', 'Jrakah'],
-    "type_tb": [' ', 1.0, 2.0],
-    "status_hamil": ['Tidak', 'Ya'],
-    "pekerjaan": ['Tidak Bekerja', 'Ibu Rumah Tangga', 'Pegawai Swasta', 'Lainnya', 'Pelajar / Mahasiswa', 
-                  'Wiraswasta', 'Nelayan', 'Petani', 'Pensiunan', 'TNI / Polri'],
-    "pekerjaan_kepala_keluarga": ['Lainnya', 'Tidak Bekerja', 'Pegawai Swasta', 'Wiraswasta', 'Pelajar / Mahasiswa', 
-                                  'Nelayan', 'Ibu Rumah Tangga', 'Petani', 'Pensiunan', 'PNS', 'TNI / Polri'],
-    "total_pendapatan_keluarga_per_bulan": ['1.000.000 - < 2.000.000', '2.000.000 - < 3.000.000', '< 1.000.000', '0', 
-                                            '3.000.000 - < 4.000.000', '>= 4.000.000'],
-    "pola_asuh": ['Orang Tua', 'Lainnya', 'Kakek / Nenek', 'Penitipan'],
-    "status_pernikahan": ['Belum Kawin', 'Kawin', 'Cerai Mati', 'Cerai Hidup'],
-    "status_pernikahan_orang_tua": ['Kawin', 'Cerai Mati', 'Belum Kawin', 'Cerai Hidup'],
-    "kepemilikan_jkn": ['Ya', 'Tidak'],
-    "perilaku_merokok": ['Tidak', 'Ya'],
-    "anggota_keluarga_merokok": ['Ya', 'Tidak'],
-    "mendapatkan_bantuan": ['Tidak', 'Ya'],
-    "status_imunisasi": ['Tidak Lengkap', 'Lengkap'],
-    "status_gizi": ['Underweight', 'Normal', 'Wasting', 'Kurang', 'Overweight', 'Obesitas'],
-    "status_rumah": ['Lainnya', 'Pribadi', 'Orang Tua', 'Kontrak', 'Kost', 'Asrama'],
-    "langit_langit": ['Tidak ada', 'Ada'],
-    "lantai": ['Ubin/keramik/marmer', 'Tanah', 'Kurang Baik', 'Papan/anyaman bambu/plester retak berdebu', 'Baik'],
-    "dinding": ['Permanen (tembok pasangan batu bata yang diplester)', 
-                'Semi permanen bata/batu yang tidak diplester/papan kayu', 
-                'Bukan tembok (papan kayu/bambu/ilalang)'],
-    "jendela_kamar_tidur": ['Tidak ada', 'Ada'],
-    "jendela_ruang_keluarga": ['Ada', 'Tidak ada'],
-    "ventilasi": ['Kurang Baik', 'Ada,luas ventilasi < 10% dari luas lantai', 'Tidak Ada', 'Baik', 
-                  'Ada, luas ventilasi > 10% dari luas lantai'],
-    "lubang_asap_dapur": ['Ada, luas ventilasi < 10% dari luas lantai dapur', 'Tidak Ada', 
-                          'Ada, luas ventilasi > 10% luas lantai dapur/exhaust vent'],
-    "pencahayaan": ['Kurang Baik', 'Tidak terang', 'Baik', 'Terang', 'Kurang jelas untuk membaca normal', 
-                    'Kurang terang', 'Dapat digunakan untuk membaca normal'],
-    "sarana_air_bersih": ['Ada,bukan milik sendiri & memenuhi syarat kesehatan', 
-                          'Ada,milik sendiri & tidak memenuhi syarat kesehatan', 
-                          'Ada, bukan milik sendiri & tidak memenuhi syarat kesehatan', 
-                          'Ada,milik sendiri & memenuhi syarat kesehatan', 'Tidak Ada'],
-    "jamban": ['Ada tutup & septic tank', 'Ada, leher angsa', 'Ada,bukan leher angsa ada tutup & septic tank', 
-               'Ada,bukan leher angsa ada tutup & dialirkan ke sungai', 'Tidak Ada'],
-    "sarana_pembuangan_air_limbah": ['Ada, diresapkan ke selokan terbuka', 
-                                     'Tidak ada, sehingga tergenang dan tidak teratur di halaman/belakang rumah', 
-                                     'Ada, bukan milik sendiri & memenuhi syarat kesehatan', 
-                                     'Ada, diresapkan tetapi mencemari sumber air (jarak <10m)', 
-                                     'Ada, dialirkan ke selokan tertutup ("&"saluran kota) utk diolah lebih lanjut'],
-    "sarana_pembuangan_sampah": ['Ada, tetapi tidak kedap air dan tidak tertutup', 'Tidak Ada', 
-                                 'Ada, kedap air dan tidak tertutup', 'Ada, kedap air dan tertutup'],
-    "sampah": ['Lainnya (Sungai)', 'Dikelola Sendiri (Pilah Sampah)', 'Bakar', 'Petugas', 'dll'],
-    "membuka_jendela_kamar_tidur": ['Tidak pernah dibuka', 'Kadang-kadang dibuka', 'Setiap hari dibuka'],
-    "membuka_jendela_ruang_keluarga": ['Tidak pernah dibuka', 'Kadang-kadang dibuka', 'Setiap hari dibuka'],
-    "membersihkan_rumah": ['Tidak pernah dibersihkan', 'Kadang-kadang', 'Setiap hari dibersihkan'],
-    "membuang_tinja": ['Setiap hari ke jamban', 'Dibuang ke sungai/kebun/kolam/sembarangan'],
-    "membuang_sampah": ['Dibuang ke sungai/kebun/kolam/sembarangan / dibakar', 
-                        'Kadang-kadang dibuang ke tempat sampah', 
-                        'Dibuang ke tempat sampah/ada petugas sampah', 
-                        'Dilakukan pilah sampah/dikelola dengan baik'],
-    "kebiasaan_ctps": ['Tidak pernah CTPS', 'Kadang-kadang CTPS', 'CTPS setiap aktivitas'],
-    "memiliki_hewan_ternak": ['Tidak', 'Ya'],
-    "kandang_hewan": []  # Kosong, gunakan text_input
-}
+# Fungsi download chart (pastikan variabel png_buffer tidak digunakan)
+def download_chart(fig):
+    buffer = fig.to_image(format="png", engine="kaleido")
+    image_stream = io.BytesIO(buffer)
+    st.download_button(
+        label="⬇️ Download Gambar",
+        data=image_stream,
+        file_name="chart.png",
+        mime="image/png",
+        key=f"download_chart_{datetime.now().timestamp()}"
+    )
+
+def tampilkan_dan_download(fig):
+    st.plotly_chart(fig)
+    download_chart(fig)
+
 # ================================
 # Halaman Home: Input & Upload Data
 # ================================
@@ -209,80 +68,144 @@ if nav == "🏠 Home":
     st.markdown("### Upload file CSV dan masukkan data baru secara manual. Data yang diinput akan digabungkan dan ditampilkan.")
     
     # --- Bagian Upload CSV ---
-    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+    uploaded_file = st.file_uploader("📂 Upload file CSV", type=["csv"])
     if uploaded_file is not None:
         try:
-            # Baca file sebagai string
-            file_contents = uploaded_file.getvalue().decode("utf-8")
-            
-            # Baca CSV menggunakan StringIO dengan separator ';'
-            df_csv = pd.read_csv(
-                StringIO(file_contents),
-                sep=';',
-                engine='python',
-                quoting=csv.QUOTE_NONE,
-                escapechar='\\',
-                skipinitialspace=True,
-                encoding='utf-8'
-            )
-
-            # Bersihkan nama kolom
-            df_csv.columns = [col.split(',')[0].strip() for col in df_csv.columns]
-
-            # Hapus semua jenis kutip (single, double, backtick) di kolom string
-            for col in df_csv.select_dtypes(include=["object"]).columns:
-                # Hapus " , ' , dan ` 
-                df_csv[col] = df_csv[col].str.replace(r'[\"\'`,]+', '', regex=True)
-            
-            # Simpan data CSV ke MySQL
-            try:
-                conn = get_connection()
-                if conn is None:
-                    st.error("Koneksi ke database gagal!")
-                else:
-                    cursor = conn.cursor()
-                    
-                    # Ambil kolom dari CSV yang juga ada di fields_order
-                    columns = [col for col in fields_order if col in df_csv.columns]
-                    df_csv = df_csv[columns]
-                    
-                    placeholders = ", ".join(["%s"] * len(df_csv.columns))
-                    insert_query = f"INSERT INTO tb_cases ({', '.join(df_csv.columns)}) VALUES ({placeholders})"
-                    
-                    data_rows = [tuple(x) for x in df_csv.to_numpy()]
-                    if data_rows:
-                        cursor.executemany(insert_query, data_rows)
-                        conn.commit()
-                        st.success("Data CSV berhasil disimpan ke MySQL!")
-                    else:
-                        st.warning("Tidak ada baris yang valid untuk disimpan.")
-            except Exception as e:
-                st.error(f"Terjadi error saat menyimpan CSV ke MySQL: {e}")
-            finally:
-                if 'cursor' in locals() and cursor is not None:
-                    cursor.close()
-                if conn is not None:
-                    conn.close()
-            
-            # Update session_state dengan data terbaru dari MySQL
-            st.info("Memuat ulang data dari database...")
-            st.session_state["data"] = load_data_from_mysql()
-            st.success("Data dari database telah diperbarui.")
+            # Membaca CSV dengan separator ';'
+            df_csv = pd.read_csv(uploaded_file, sep=';', encoding='utf-8')
+            st.success("File CSV berhasil diupload!")
+            st.session_state["csv_data"] = df_csv.copy()
+            st.session_state["data"] = pd.concat([st.session_state["csv_data"], st.session_state["manual_data"]], ignore_index=True)
+            st.info("Data CSV telah disimpan dan digabungkan dengan data manual yang ada.")
         except Exception as e:
             st.error(f"Error membaca file: {e}")
+   
+    # Urutan field yang diinginkan
+    fields_order = [
+        "puskesmas", "pasien", "age", "gender", "faskes", "city", "regency",
+        "kelurahan", "type_tb", "date_start", "tgl_kunjungan", "status_hamil",
+        "penyakit", "pekerjaan", "tempat_kerja", "nama_kepala_keluarga",
+        "pekerjaan_kepala_keluarga", "total_pendapatan_keluarga_per_bulan",
+        "pola_asuh", "status_pernikahan", "status_pernikahan_orang_tua",
+        "jumlah_anggota_keluarga", "kepemilikan_jkn", "perilaku_merokok",
+        "anggota_keluarga_merokok", "mendapatkan_bantuan", "status_imunisasi",
+        "status_gizi", "status_rumah", "luas_rumah", "tipe_rumah",
+        "langit_langit", "lantai", "dinding", "jendela_kamar_tidur",
+        "jendela_ruang_keluarga", "ventilasi", "lubang_asap_dapur",
+        "pencahayaan", "sarana_air_bersih", "jamban",
+        "sarana_pembuangan_air_limbah", "sarana_pembuangan_sampah", "sampah",
+        "membuka_jendela_kamar_tidur", "membuka_jendela_ruang_keluarga",
+        "membersihkan_rumah", "membuang_tinja", "membuang_sampah",
+        "kebiasaan_ctps", "memiliki_hewan_ternak", "kandang_hewan"
+    ]
     
-    # Tampilkan data gabungan dari MySQL dan CSV (jika ada)
-    st.subheader("📊 Data dari MySQL + CSV yang diunggah")
-    st.dataframe(st.session_state["data"])
+    # Option dictionary untuk field yang memiliki pilihan
+    option_dict = {
+        "puskesmas": ['Puskesmas Kedungmundu', 'Puskesmas Sekaran', 'Puskesmas Karangdoro', 'Puskesmas Rowosari', 
+                      'Puskesmas Bandarharjo', 'Puskesmas Pegandan', 'Puskesmas Mangkang', 'Puskesmas Candilama', 
+                      'Puskesmas Karang Malang', 'Puskesmas Ngaliyan', 'Puskesmas Lebdosari', 'Plamongan Sari', 
+                      'Puskesmas Purwoyoso', 'Puskesmas Bangetayu', 'Puskesmas Pandanaran', 'Puskesmas Mijen', 
+                      'Puskesmas Ngesrep', 'Puskesmas Karangayu', 'Puskesmas Tambakaji', 'Puskesmas Padangsari', 
+                      'Puskesmas Halmahera', 'Puskesmas Miroto', 'Puskesmas Genuk', 'bulusan', 'Puskesmas Bugangan', 
+                      'Puskesmas Tlogosari Wetan', 'Puskesmas Poncol', 'Puskesmas Pudak Payung', 'Puskesmas Kagok', 
+                      'Puskesmas Krobokan', 'Puskesmas Manyaran', 'Puskesmas Tlogosari Kulon', 'Puskesmas Karanganyar', 
+                      'Puskesmas Gunungpati', 'Puskesmas Ngemplak Simongan', 'Puskesmas Srondol', 'Puskesmas Gayamsari', 
+                      'Puskesmas Bulu Lor'],
+        "gender": ['L', 'P'],
+        "city": ['Semarang', 'Luar Kota'],
+        "regency": ['Tembalang', 'Gunungpati', 'Semarang Timur', 'Semarang Utara', 'Gajahmungkur', 'Tugu', 'Candisari', 
+                    'Mijen', 'Ngaliyan', 'Semarang Barat', 'Pedurungan', 'Genuk', 'Semarang Selatan', 'Banyumanik', 
+                    'Luar Kota', 'Semarang Tengah', 'Gayamsari'],
+        "kelurahan": ['Tandang', 'Sukorejo', 'Sendangmulyo', 'Sambiroto', 'Kemijen', 'Rejomulyo', 'Sendangguwo', 
+                      'Meteseh', 'Dadapsari', 'Petompon', 'Karangrejo', 'Lempongsari', 'Bendungan', 'Mangkang Wetan', 
+                      'Karanganyar Gunung', 'Sampangan', 'Tanjungmas', 'Kalisegoro', 'Karangmalang', 'Wates', 'Sekaran', 
+                      'Jangli', 'Kalibanteng Kulon', 'Penggaron Kidul', 'Bandarharjo', 'Purwoyoso', 'Pedurungan Kidul', 
+                      'Kedungmundu', 'Patemon', 'Sembungharjo', 'Bringin', 'Randusari', 'Wonoplumbon', 'Rowosari', 
+                      'Ngesrep', 'Tinjomoyo', 'Karangayu', 'Podorejo', 'Karangroto', 'Kalipancur', 'Wonosari', 
+                      'Sumurboto', 'Plamongansari', 'Padangsari', 'Bambankerep', 'Mangkang Kulon', 'Mangunharjo', 
+                      'Pedalangan', 'Jomblang', 'Kedungpane', 'Ngadirgo', 'Cangkiran', 'Luar Kota', 'Rejosari', 
+                      'Jatingaleh', 'Tambakaji', 'Mlatibaru', 'Ngaliyan', 'Gabahan', 'Miroto', 'Genuksari', 'Salamanmloyo', 
+                      'Bulusan', 'Bugangan', 'Kebonagung', 'Bulustalan', 'Gisikdrono', 'Tambakharjo', 'Muktiharjo Lor', 
+                      'Ngijo', 'Mijen', 'Wonolopo', 'Jabungan', 'Kuningan', 'Tlogomulyo', 'Banjardowo', 'Bubakan', 
+                      'Gondoriyo', 'Bendan Duwur', 'Gajahmungkur', 'Bendan Ngisor', 'Purwodinatan', 'Kramas', 'Kudu', 
+                      'Mugassari', 'Penggaron Lor', 'Bangetayu Wesan', 'Bangunharjo', 'Kembangsari', 'Pandansari', 
+                      'Sekayu', 'Karangtempel', 'Gedawang', 'Karangkidul', 'Bojongsalaman', 'Trimulyo', 'Bangetayu Kulon', 
+                      'Gebangsari', 'Jatibarang', 'Tambangan', 'Wonodri', 'Pudakpayung', 'Pedurungan Tengah', 'Candi', 
+                      'Kranggan', 'Tlogosari Wetan', 'Tawangsari', 'Palebon', 'Mlatibaru', 'Tegalsari', 'Wonotingal', 
+                      'Manyaran', 'Kembangarum', 'Barusari', 'Krapyak', 'Gemah', 'Tugurejo', 'Mangunsari', 'Nongkosawit', 
+                      'Karangturi', 'Tlogosari Kulon', 'NgemplakSimongan', 'Krobokan', 'Srondol Wetan', 'Banyumanik', 
+                      'Gunungpati', 'Jagalan', 'Pindrikan Lor', 'Jatisari', 'Srondol Kulon', 'Randugarut', 'Kaligawe', 
+                      'Tawangmas', 'Brumbungan', 'Siwalan', 'Tambakrejo', 'Sadeng', 'Sawah Besar', 'Jatirejo', 'Plalangan', 
+                      'Pakintelan', 'Kauman', 'Pandean Lamper', 'Gayamsari', 'Sambirejo', 'Sarirejo', 'Bongsari', 
+                      'Pindrikan Kidul', 'Sumurejo', 'Terboyo Wetan', 'Muktiharjo Kidul', 'Pedurungan Lor', 'Kalicari', 
+                      'Cabean', 'Karanganyar', 'Panggung Lor', 'Purwosari', 'Panggung Kidul', 'Bulu Lor', 'Plombokan', 
+                      'Kaliwiru', 'Pangangan', 'Kalibanteng Kidul', 'Jrakah'],
+        "type_tb": [1.0, 2.0],
+        "status_hamil": ['Tidak', 'Ya'],
+        "pekerjaan": ['Tidak Bekerja', 'Ibu Rumah Tangga', 'Pegawai Swasta', 'Lainnya', 'Pelajar / Mahasiswa', 
+                      'Wiraswasta', 'Nelayan', 'Petani', 'Pensiunan', 'TNI / Polri'],
+        "pekerjaan_kepala_keluarga": ['Lainnya', 'Tidak Bekerja', 'Pegawai Swasta', 'Wiraswasta', 'Pelajar / Mahasiswa', 
+                                      'Nelayan', 'Ibu Rumah Tangga', 'Petani', 'Pensiunan', 'PNS', 'TNI / Polri'],
+        "total_pendapatan_keluarga_per_bulan": ['1.000.000 - < 2.000.000', '2.000.000 - < 3.000.000', '< 1.000.000', '0', 
+                                                '3.000.000 - < 4.000.000', '>= 4.000.000'],
+        "pola_asuh": ['Orang Tua', 'Lainnya', 'Kakek / Nenek', 'Penitipan'],
+        "status_pernikahan": ['Belum Kawin', 'Kawin', 'Cerai Mati', 'Cerai Hidup'],
+        "status_pernikahan_orang_tua": ['Kawin', 'Cerai Mati', 'Belum Kawin', 'Cerai Hidup'],
+        "kepemilikan_jkn": ['Ya', 'Tidak'],
+        "perilaku_merokok": ['Tidak', 'Ya'],
+        "anggota_keluarga_merokok": ['Ya', 'Tidak'],
+        "mendapatkan_bantuan": ['Tidak', 'Ya'],
+        "status_imunisasi": ['Tidak Lengkap', 'Lengkap'],
+        "status_gizi": ['Underweight', 'Normal', 'Wasting', 'Kurang', 'Overweight', 'Obesitas'],
+        "status_rumah": ['Lainnya', 'Pribadi', 'Orang Tua', 'Kontrak', 'Kost', 'Asrama'],
+        "langit_langit": ['Tidak ada', 'Ada'],
+        "lantai": ['Ubin/keramik/marmer', 'Tanah', 'Kurang Baik', 'Papan/anyaman bambu/plester retak berdebu', 'Baik'],
+        "dinding": ['Permanen (tembok pasangan batu bata yang diplester)', 
+                    'Semi permanen bata/batu yang tidak diplester/papan kayu', 
+                    'Bukan tembok (papan kayu/bambu/ilalang)'],
+        "jendela_kamar_tidur": ['Tidak ada', 'Ada'],
+        "jendela_ruang_keluarga": ['Ada', 'Tidak ada'],
+        "ventilasi": ['Kurang Baik', 'Ada,luas ventilasi < 10% dari luas lantai', 'Tidak Ada', 'Baik', 
+                      'Ada, luas ventilasi > 10% dari luas lantai'],
+        "lubang_asap_dapur": ['Ada, luas ventilasi < 10% dari luas lantai dapur', 'Tidak Ada', 
+                              'Ada, luas ventilasi > 10% luas lantai dapur/exhaust vent'],
+        "pencahayaan": ['Kurang Baik', 'Tidak terang', 'Baik', 'Terang', 'Kurang jelas untuk membaca normal', 
+                        'Kurang terang', 'Dapat digunakan untuk membaca normal'],
+        "sarana_air_bersih": ['Ada,bukan milik sendiri & memenuhi syarat kesehatan', 
+                              'Ada,milik sendiri & tidak memenuhi syarat kesehatan', 
+                              'Ada, bukan milik sendiri & tidak memenuhi syarat kesehatan', 
+                              'Ada,milik sendiri & memenuhi syarat kesehatan', 'Tidak Ada'],
+        "jamban": ['Ada tutup & septic tank', 'Ada, leher angsa', 'Ada,bukan leher angsa ada tutup & septic tank', 
+                   'Ada,bukan leher angsa ada tutup & dialirkan ke sungai', 'Tidak Ada'],
+        "sarana_pembuangan_air_limbah": ['Ada, diresapkan ke selokan terbuka', 
+                                         'Tidak ada, sehingga tergenang dan tidak teratur di halaman/belakang rumah', 
+                                         'Ada, bukan milik sendiri & memenuhi syarat kesehatan', 
+                                         'Ada, diresapkan tetapi mencemari sumber air (jarak <10m)', 
+                                         'Ada, dialirkan ke selokan tertutup ("&"saluran kota) utk diolah lebih lanjut'],
+        "sarana_pembuangan_sampah": ['Ada, tetapi tidak kedap air dan tidak tertutup', 'Tidak Ada', 
+                                     'Ada, kedap air dan tidak tertutup', 'Ada, kedap air dan tertutup'],
+        "sampah": ['Lainnya (Sungai)', 'Dikelola Sendiri (Pilah Sampah)', 'Bakar', 'Petugas', 'dll'],
+        "membuka_jendela_kamar_tidur": ['Tidak pernah dibuka', 'Kadang-kadang dibuka', 'Setiap hari dibuka'],
+        "membuka_jendela_ruang_keluarga": ['Tidak pernah dibuka', 'Kadang-kadang dibuka', 'Setiap hari dibuka'],
+        "membersihkan_rumah": ['Tidak pernah dibersihkan', 'Kadang-kadang', 'Setiap hari dibersihkan'],
+        "membuang_tinja": ['Setiap hari ke jamban', 'Dibuang ke sungai/kebun/kolam/sembarangan'],
+        "membuang_sampah": ['Dibuang ke sungai/kebun/kolam/sembarangan / dibakar', 
+                            'Kadang-kadang dibuang ke tempat sampah', 
+                            'Dibuang ke tempat sampah/ada petugas sampah', 
+                            'Dilakukan pilah sampah/dikelola dengan baik'],
+        "kebiasaan_ctps": ['Tidak pernah CTPS', 'Kadang-kadang CTPS', 'CTPS setiap aktivitas'],
+        "memiliki_hewan_ternak": ['Tidak', 'Ya'],
+        "kandang_hewan": []  # Kosong, gunakan text_input
+    }
     
     st.markdown("## Form Input Data Manual Tambahan")
-
-    # --- Form manual selanjutnya ---
     with st.form(key="manual_form"):
         input_manual = {}
         for col in fields_order:
-            label = col.replace("_", " ").title()
-            if col == "age":
+            label = col.replace("_", " ").title()  # Bisa juga menggunakan fungsi display_label
+            if col == "pasien":
+                input_manual[col] = st.text_input(label, value="")
+            elif col == "age":
                 input_manual[col] = st.number_input(label, min_value=0, step=1, value=0)
             elif col in ["date_start", "tgl_kunjungan"]:
                 input_manual[col] = st.date_input(label, value=datetime.today())
@@ -297,119 +220,50 @@ if nav == "🏠 Home":
         submitted_manual = st.form_submit_button("Submit Data Manual Tambahan")
     
     if submitted_manual:
-        df_manual = pd.DataFrame([input_manual])
-        if "date_start" in df_manual.columns:
+        # Validasi: periksa bahwa setiap field bertipe string tidak kosong
+        missing_fields = []
+        for key, value in input_manual.items():
+            # Hanya periksa field yang berupa string (text input)
+            if isinstance(value, str) and value.strip() == "":
+                missing_fields.append(display_label(key))
+        if missing_fields:
+            st.error("Harap lengkapi data di field: " + ", ".join(missing_fields))
+        else:
+            df_manual = pd.DataFrame([input_manual])
             df_manual["date_start"] = pd.to_datetime(df_manual["date_start"]).dt.strftime('%Y-%m-%d')
-        if "tgl_kunjungan" in df_manual.columns:
             df_manual["tgl_kunjungan"] = pd.to_datetime(df_manual["tgl_kunjungan"]).dt.strftime('%Y-%m-%d')
-        
-        st.success("Data manual tambahan berhasil ditambahkan!")
-        st.dataframe(df_manual, use_container_width=True)
-        
-        # Simpan data manual langsung ke MySQL
-        try:
-            conn = get_connection()
-            if conn is None:
-                st.error("Koneksi ke database gagal!")
-            else:
-                cursor = conn.cursor()
-                columns = [col for col in fields_order if col in df_manual.columns]
-                df_manual = df_manual[columns]
-                placeholders = ", ".join(["%s"] * len(df_manual.columns))
-                insert_query = f"INSERT INTO tb_cases ({', '.join(df_manual.columns)}) VALUES ({placeholders})"
-                data_rows = [tuple(x) for x in df_manual.to_numpy()]
-                cursor.executemany(insert_query, data_rows)
-                conn.commit()
-                st.success("Data manual berhasil disimpan ke MySQL!")
-        except Exception as e:
-            st.error(f"Terjadi error saat menyimpan ke MySQL: {e}")
-        finally:
-            if 'cursor' in locals() and cursor is not None:
-                cursor.close()
-            if conn is not None:
-                conn.close()
-        
-        # Update session_state dengan memuat ulang data dari database
-        st.info("Memuat ulang data dari database...")
-        st.session_state["data"] = load_data_from_mysql()
-        st.success("Data dari database telah diperbarui.")
-
+            st.success("Data manual tambahan berhasil ditambahkan!")
+            st.dataframe(df_manual)
+            st.session_state["manual_data"] = pd.concat([st.session_state["manual_data"], df_manual], ignore_index=True)
+            st.session_state["data"] = pd.concat([st.session_state["csv_data"], st.session_state["manual_data"]], ignore_index=True)
+            st.info("Data gabungan telah disimpan. Buka halaman Visualisasi untuk melihat chart.")
     
-if nav == "📋 Data":
-    st.title("📋 Data Pasien")
-
-    # Periksa apakah ada data pasien
-    if "data" not in st.session_state or st.session_state["data"].empty:
-        st.warning("Tidak ada data pasien tersedia.")
-    else:
-        # Pilih pasien yang ingin diedit atau dihapus
-        pasien_list = st.session_state["data"]["pasien"].unique().tolist()
-        
-        if pasien_list:
-            selected_pasien = st.selectbox("Pilih ID Pasien:", pasien_list, index=0, key="selected_pasien")
-
-            # Pastikan pasien masih ada dalam dataset
-            if selected_pasien in st.session_state["data"]["pasien"].values:
-                selected_data = st.session_state["data"][st.session_state["data"]["pasien"] == selected_pasien].iloc[0]
-
-                # Buat form edit data
-                with st.form("edit_form"):
-                    new_values = {}
-                    for field in fields_order:
-                        if field in option_dict:
-                            new_values[field] = st.selectbox(
-                                display_label(field),
-                                option_dict[field], 
-                                index=option_dict[field].index(str(selected_data[field])) if str(selected_data[field]) in option_dict[field] else 0,
-                                key=f"{field}_edit"
-                            )
-                        else:
-                            new_values[field] = st.text_input(display_label(field), value=str(selected_data[field]), key=f"{field}_input")
-
-                    # Tombol untuk simpan perubahan
-                    submit_button = st.form_submit_button("Simpan Perubahan")
-
-                    if submit_button:
-                        for column, value in new_values.items():
-                            update_mysql_data(selected_pasien, column, value)
-                        st.success(f"Data pasien {selected_pasien} berhasil diperbarui!")
+    if not st.session_state["data"].empty:
+        st.markdown("### Data Gabungan Saat Ini")
+        st.dataframe(st.session_state["data"])
 
 
 # ================================
 # Halaman Visualisasi
 # ================================
-if nav == "📈 Visualisasi":
+elif nav == "📈 Visualisasi":
     st.title("📈 Visualisasi Data")
     if st.session_state["data"].empty:
         st.warning("Data belum tersedia. Silakan upload file CSV atau input data manual di halaman Home.")
     else:
-        # Buat salinan DataFrame untuk menghindari SettingWithCopyWarning
-        df = st.session_state["data"].copy()
-        
-        # Pastikan kolom 'age' dikonversi ke numerik untuk menghindari Arrow conversion error
-        if "age" in df.columns:
-            df["age"] = pd.to_numeric(df["age"], errors="coerce")
+        df = st.session_state["data"]
+        st.subheader("Data yang Digunakan")
+        st.dataframe(df)
         
         # Preprocessing dasar: imputasi, hapus duplikasi, konversi tanggal
         kolom_numerik = df.select_dtypes(include=['number']).columns
         kolom_kategori = df.select_dtypes(include=['object']).columns
-        
-        # Gunakan .loc untuk menghindari SettingWithCopyWarning
-        df.loc[:, kolom_kategori] = df.loc[:, kolom_kategori].apply(
-            lambda x: x.fillna(x.mode()[0]) if not x.mode().empty else x
-        )
-        df.loc[:, kolom_numerik] = df.loc[:, kolom_numerik].apply(
-            lambda col: col.fillna(int(round(col.mean()))) if not col.dropna().empty else col
-        )
-        
+        df[kolom_kategori] = df[kolom_kategori].apply(lambda x: x.fillna(x.mode()[0]))
+        df[kolom_numerik] = df[kolom_numerik].apply(lambda x: x.fillna(x.mean()))
         df = df.drop_duplicates()
         if "date_start" in df.columns:
-            # Konversi kolom "date_start" ke datetime, kemudian format hanya tanggal (YYYY-MM-DD)
-            df["date_start"] = pd.to_datetime(df["date_start"], errors="coerce").dt.strftime('%Y-%m-%d')
-        
-        st.subheader("Data Setelah Preprocessing")
-        st.dataframe(df.head(20))
-
+            df["date_start"] = pd.to_datetime(df["date_start"], errors="coerce")
+            df["year_month"] = df["date_start"].dt.to_period("M").astype(str)
         
         # Definisi kategori untuk analisis skor
         kategori_rumah = [
@@ -544,10 +398,8 @@ if nav == "📈 Visualisasi":
                 "🟢 Status Gizi dan Imunisasi",
                 "🎯 Distribusi Pekerjaan",
                 "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan",
-                "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan",
                 "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan", 
-                "📊 Jumlah Pasien Berdasarkan Tipe TB", 
-                "🗺️ Peta Frekuensi Pasien per Kelurahan"
+                "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan"
             ]
             pilihan = st.selectbox("Pilih Visualisasi", visualisasi_list)
             
@@ -576,7 +428,6 @@ if nav == "📈 Visualisasi":
             
                 st.plotly_chart(fig)
             
-                        
             elif pilihan == "📈 Kebiasaan CTPS":
                 st.subheader("📈 Kebiasaan CTPS vs Jumlah Pasien")
                 
@@ -999,6 +850,7 @@ if nav == "📈 Visualisasi":
                 
                 st.plotly_chart(fig, use_container_width=True)
 
+            
             elif pilihan == "🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan":
                 st.subheader("🏠 Tabel Crosstab Rumah Tidak Layak vs Pekerjaan")
 
@@ -1017,22 +869,6 @@ if nav == "📈 Visualisasi":
                 
                 st.dataframe(crosstab_counts)
 
-                # **Visualisasi dengan Plotly Express**
-                if "Tidak Layak" in crosstab_counts.columns:
-                    fig = px.bar(
-                        crosstab_counts.reset_index(),
-                        x="pekerjaan",
-                        y="% Tidak Layak",
-                        title="Persentase Rumah Tidak Layak per Pekerjaan",
-                        labels={"pekerjaan": "Pekerjaan", "% Tidak Layak": "Persentase Rumah Tidak Layak (%)"},
-                        text="% Tidak Layak",
-                        color="% Tidak Layak",
-                        color_continuous_scale="Oranges"
-                    )
-                    fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-                    fig.update_layout(xaxis_tickangle=-45)  # Rotasi label sumbu x untuk keterbacaan lebih baik
-                    st.plotly_chart(fig)
-                    
 
             elif pilihan == "🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan":
                 st.subheader("🚩 Tabel Crosstab Perilaku Tidak Baik vs Pekerjaan")
@@ -1061,22 +897,6 @@ if nav == "📈 Visualisasi":
                 
                 # 5) Tampilkan di Streamlit
                 st.dataframe(crosstab_perilaku)
-            
-                # **Visualisasi dengan Plotly (Hanya % Tidak Layak)**
-                fig = px.bar(
-                    crosstab_perilaku.reset_index(),
-                    x="pekerjaan",
-                    y="% Tidak Layak",
-                    title="Persentase Perilaku Tidak Baik per Pekerjaan",
-                    labels={"pekerjaan": "Pekerjaan", "% Tidak Layak": "Persentase Perilaku Tidak Baik (%)"},
-                    text="% Tidak Layak",
-                    color="% Tidak Layak",
-                    color_continuous_scale="Reds"
-                )
-            
-                fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-                fig.update_layout(xaxis_tickangle=-45)  # Rotasi label sumbu X agar lebih rapi
-                st.plotly_chart(fig)
 
             
             elif pilihan == "🚰 Tabel Crosstab Sanitasi Tidak Layak vs Pekerjaan":
@@ -1107,193 +927,5 @@ if nav == "📈 Visualisasi":
                 # 5) Tampilkan di Streamlit
                 st.dataframe(crosstab_sanitasi)
 
-                # **Visualisasi dengan Plotly Express**
-                if "Tidak Layak" in crosstab_sanitasi.columns:
-                    fig = px.bar(
-                        crosstab_sanitasi.reset_index(),
-                        x="pekerjaan",
-                        y="% Tidak Layak",
-                        title="Persentase Sanitasi Tidak Layak per Pekerjaan",
-                        labels={"pekerjaan": "Pekerjaan", "% Tidak Layak": "Persentase Sanitasi Tidak Layak (%)"},
-                        text="% Tidak Layak",
-                        color="% Tidak Layak",
-                        color_continuous_scale="Blues"
-                    )
-                    fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-                    fig.update_layout(xaxis_tickangle=-45)  # Rotasi label sumbu X untuk keterbacaan lebih baik
-                    st.plotly_chart(fig)
-
-            elif pilihan == "📊 Jumlah Pasien Berdasarkan Tipe TB":
-                st.subheader("📊 Jumlah Pasien Berdasarkan Tipe TB")
-
-                # Periksa apakah kolom 'type_tb' ada di DataFrame gabungan
-                if "type_tb" not in df.columns:
-                    st.warning("Kolom 'type_tb' tidak ditemukan di data.")
-                else:
-                    # Fungsi mapping yang fleksibel untuk mengonversi nilai ke "SO", "RO", atau "Lainnya"
-                    def map_tb_type(x):
-                        x_str = str(x).strip().lower()  # ubah ke string, hapus spasi, dan lowercase
-                        if x_str in ["1", "1.0", "so"]:
-                            return "SO"
-                        elif x_str in ["2", "2.0", "ro"]:
-                            return "RO"
-                        else:
-                            return "Lainnya"
-            
-                    # Terapkan mapping ke kolom 'type_tb' dan simpan hasilnya di kolom baru "type_tb_str"
-                    df["type_tb_str"] = df["type_tb"].apply(map_tb_type)
-            
-                    # Hitung jumlah pasien per tipe TB (SO, RO, dan Lainnya)
-                    count_tipe = df["type_tb_str"].value_counts().reset_index()
-                    count_tipe.columns = ["Tipe TB", "Jumlah Pasien"]
-            
-                    # Buat bar chart menggunakan Plotly Express
-                    fig = px.bar(
-                        count_tipe,
-                        x="Tipe TB",
-                        y="Jumlah Pasien",
-                        text="Jumlah Pasien",
-                        title="Jumlah Pasien Berdasarkan Tipe TB (SO, RO, dan Lainnya)",
-                        labels={"Tipe TB": "Tipe TB", "Jumlah Pasien": "Jumlah Pasien"},
-                        color="Jumlah Pasien",
-                        color_continuous_scale="Viridis"
-                    )
-                    fig.update_traces(textposition="outside")
-                    st.plotly_chart(fig, use_container_width=True)
-
-            elif pilihan == "🗺️ Peta Frekuensi Pasien per Kelurahan":
-                st.subheader("🗺️ Peta Frekuensi Pasien per Kelurahan")
-
-                # Pastikan kolom 'kelurahan' ada di DataFrame
-                if "kelurahan" not in df.columns:
-                    st.warning("Kolom 'kelurahan' tidak ditemukan di data.")
-                else:
-                    # 1) Hitung jumlah pasien per kelurahan
-                    df_kelurahan = df.groupby("kelurahan")["pasien"].count().reset_index()
-                    df_kelurahan.columns = ["kelurahan", "jumlah_pasien"]
-            
-                    # 2) Ambil daftar unik kelurahan dari data
-                    unique_kelurahan = df_kelurahan["kelurahan"].unique()
-            
-                    # 3) Inisialisasi geolocator dengan timeout yang lebih tinggi dan RateLimiter
-                    from geopy.geocoders import Nominatim
-                    from geopy.extra.rate_limiter import RateLimiter
-                    geolocator = Nominatim(user_agent="streamlit_app", timeout=10)
-                    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=3, error_wait_seconds=2)
-            
-                    # 4) Lakukan geocoding untuk tiap kelurahan
-                    kelurahan_coords = {}
-                    for k in unique_kelurahan:
-                        # Jika Anda ingin melewati kelurahan tertentu:
-                        if k in ["Luar Kota", "Pindrikan Kidul"]:
-                            st.info(f"Melewati geocoding untuk {k}.")
-                            continue
-                        try:
-                            location = geocode(f"{k}, Semarang, Indonesia")
-                            if location:
-                                kelurahan_coords[k] = (location.latitude, location.longitude)
-                            else:
-                                st.info(f"Koordinat untuk {k} tidak ditemukan.")
-                        except Exception as e:
-                            st.write(f"Tidak dapat menggeocode {k}: {e}")
-            
-                    # 5) Jika Anda memiliki koordinat manual:
-                    manual_coords = {
-                        # "Pindrikan Kidul": (-7.000000, 110.400000),
-                        # "Luar Kota": (-7.050000, 110.500000)
-                    }
-                    kelurahan_coords.update(manual_coords)
-            
-                    # 6) Ubah dictionary koordinat menjadi DataFrame
-                    import pandas as pd
-                    coords_df = pd.DataFrame(
-                        [(k, v[0], v[1]) for k, v in kelurahan_coords.items()],
-                        columns=["kelurahan", "lat", "lon"]
-                    )
-            
-                    # 7) Gabungkan data frekuensi pasien dengan DataFrame koordinat
-                    df_map = pd.merge(df_kelurahan, coords_df, on="kelurahan", how="inner")
-            
-                    # 8) Buat peta dengan Folium (pusatkan di Semarang)
-                    import folium
-                    from streamlit_folium import st_folium
-                    m = folium.Map(location=[-7.005145, 110.438125], zoom_start=12)
-            
-                    # 9) Tambahkan marker (CircleMarker) untuk tiap kelurahan
-                    for i, row in df_map.iterrows():
-                        kel = row["kelurahan"]
-                        lat = row["lat"]
-                        lon = row["lon"]
-                        jml = row["jumlah_pasien"]
-                        folium.CircleMarker(
-                            location=[lat, lon],
-                            radius=5 + jml * 0.1,  # Ukuran marker disesuaikan dengan jumlah pasien
-                            color="blue",
-                            fill=True,
-                            fill_color="blue",
-                            fill_opacity=0.6,
-                            popup=f"<b>{kel}</b><br>Jumlah Pasien: {jml}"
-                        ).add_to(m)
-            
-                    # 10) Tambahkan kontrol pan kustom dengan ikon panah
-                    from folium import MacroElement
-                    from jinja2 import Template
-            
-                    class PanControl(MacroElement):
-                        def __init__(self):
-                            super().__init__()
-                            self._name = "PanControl"
-                            self._template = Template("""
-                                {% macro script(this, kwargs) %}
-                                // Tambahkan kontrol pan kustom dengan tombol panah
-                                L.Control.Pan = L.Control.extend({
-                                    options: {
-                                        position: 'topleft'
-                                    },
-                                    onAdd: function(map) {
-                                        var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
-                                        container.style.backgroundColor = 'white';
-                                        container.style.padding = '5px';
-                                        container.innerHTML = `
-                                            <a href="#" id="pan-up" style="display: block; text-align: center; font-size: 18px;">&#8593;</a>
-                                            <a href="#" id="pan-left" style="display: inline-block; width: 30px; text-align: center; font-size: 18px;">&#8592;</a>
-                                            <a href="#" id="pan-right" style="display: inline-block; width: 30px; text-align: center; font-size: 18px;">&#8594;</a>
-                                            <a href="#" id="pan-down" style="display: block; text-align: center; font-size: 18px;">&#8595;</a>
-                                        `;
-                                        L.DomEvent.disableClickPropagation(container);
-                                        return container;
-                                    }
-                                });
-                                L.control.pan = function(opts) {
-                                    return new L.Control.Pan(opts);
-                                };
-                                var map = {{this._parent.get_name()}};
-                                L.control.pan({ position: 'topleft' }).addTo(map);
-                                document.getElementById('pan-up').addEventListener('click', function(e) {
-                                    e.preventDefault();
-                                    map.panBy([0, -100]);
-                                });
-                                document.getElementById('pan-down').addEventListener('click', function(e) {
-                                    e.preventDefault();
-                                    map.panBy([0, 100]);
-                                });
-                                document.getElementById('pan-left').addEventListener('click', function(e) {
-                                    e.preventDefault();
-                                    map.panBy([-100, 0]);
-                                });
-                                document.getElementById('pan-right').addEventListener('click', function(e) {
-                                    e.preventDefault();
-                                    map.panBy([100, 0]);
-                                });
-                                {% endmacro %}
-                            """)
-            
-                    # Tambahkan pan control ke peta
-                    m.get_root().add_child(PanControl())
-            
-                    st.title("Peta Frekuensi Pasien per Kelurahan")
-                    st_folium(m, width=700, height=500)
-                        
 
             st.sidebar.success("Visualisasi selesai ditampilkan!")
-        
