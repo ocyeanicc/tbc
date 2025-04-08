@@ -8,6 +8,7 @@ import plotly.express as px
 import plotly.io as pio  
 from PIL import Image
 import io
+from db_connector import get_connection, load_data_from_mysql
 import mysql.connector
 import csv
 from io import StringIO
@@ -1297,4 +1298,4 @@ if nav == "📈 Visualisasi":
                         
 
             st.sidebar.success("Visualisasi selesai ditampilkan!")
-            
+        
